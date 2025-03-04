@@ -160,13 +160,13 @@ class Game15PuzzleGUI:
 
     def handle_keypress(self, event):
         if event.keysym in ['Up', 'w']:
-            self.game.move_up()
-        elif event.keysym in ['Down', 's']:
             self.game.move_down()
+        elif event.keysym in ['Down', 's']:
+            self.game.move_up()
         elif event.keysym in ['Left', 'a']:
-            self.game.move_left()
-        elif event.keysym in ['Right', 'd']:
             self.game.move_right()
+        elif event.keysym in ['Right', 'd']:
+            self.game.move_left()
         self.update_board()
         if self.game.is_solved():
             messagebox.showinfo("Congratulations!", "You solved the puzzle!")
