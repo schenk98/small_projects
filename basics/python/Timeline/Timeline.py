@@ -124,7 +124,7 @@ class TimelineGameGUI:
         self.result_label = tk.Label(self.input_frame, text="", font=("Helvetica", 14))
         self.result_label.grid(row=2, column=1, pady=5)
 
-        self.points_label = tk.Label(self.input_frame, text=f"Points: {self.points}", font=("Helvetica", 14))
+        self.points_label = tk.Label(self.input_frame, text=f"Points: {self.points}", font=("Helvetica", 14), fg="black")
         self.points_label.grid(row=3, column=1, pady=5)
 
         self.hand_buttons = []
@@ -176,8 +176,10 @@ class TimelineGameGUI:
             if self.game.place_card(self.selected_card_index, position):
                 self.points += 1
                 self.result_label.config(text="Correct placement!", fg="green")
+                self.points_label.config(fg="green")
             else:
                 self.result_label.config(text="Incorrect placement.", fg="red")
+                self.points_label.config(fg="red")
             self.points_label.config(text=f"Points: {self.points}")
             self.game.draw_card()
             self.selected_card_index = None
