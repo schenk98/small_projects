@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Timeline Game</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .timeline {
+            margin-left: auto;
+            width: 40%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .card, .timeline_card {
+            display: block;
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px; /* Zakulacené rohy */
+            word-wrap: break-word;
+        }
+        .card {
+            width: 9%;
+        }
+        .hand {
+            position: fixed;
+            bottom: 15%;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .hand .card {
+            cursor: pointer;
+            width: 30%;
+            height: 100px;
+            white-space: normal;
+            text-align: center;
+            margin: 5px;
+        }
+        .timeline_card {
+            cursor: pointer;
+            width: 100%;
+            height: 50px;
+            white-space: normal;
+            text-align: center;
+            font-size: large;
+            margin: 5px;
+        }
+        .result {
+            margin-top: 20px;
+        }
+        .correct {
+            color: green;
+        }
+        .wrong {
+            color: red;
+        }
+        .default {
+            color: black;
+        }
+        .correct-card {
+            background-color: lightgreen;
+        }
+        .wrong-card {
+            background-color: lightcoral;
+        }
+        .score {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            background-color: white;
+            padding: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .input-container {
+            position: fixed;
+            bottom: 10%;
+            left: 0;
+            width: 30%;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background-color: white;
+        }
+        .input-container input {
+            flex: 1;
+        }
+        .input-container button {
+            flex: 0 0 auto;
+            width: 150px;
+            height: 38px;
+        }
+        .reload-style {
+            animation: reload-animation 0.5s;
+        }
+        @keyframes reload-animation {
+            from { opacity: 0.5; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hand">
+            <div id="hand" class="d-flex flex-wrap">
+                {% for card in player_hand %}
+                    <button class="card btn btn-light" onclick="selectCard({{ forloop.counter0 }})">{{ card.event }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="timeline">
+            <h2>Timeline:</h2>
+            <div id="timeline">
+                {% for card in timeline %}
+                    <div class="timeline_card {{ card.correct|yesno:'correct-card,wrong-card' }}">{{ card.event }} ({{ card.year }})</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="input-container">
+        <input type="number" id="year" class="form-control" placeholder="Enter year">
+        <button class="btn btn-primary ml-2" onclick="submitYear()">Submit Year</button>
+        <button class="btn btn-secondary ml-2" onclick="restartGame()">Restart Game</button>
+    </div>
+    <div class="score">
+        <p id="points" class="default">Points: {{ points }}</p>
+        <p class="result mt-3" id="result"></p>
+        <p id="wrong" class="default">Wrong: {{ wrong }}</p>
+    </div>
+    <script>
+        let selectedCardIndex = null;
+    
+        function selectCard(index) {
+            selectedCardIndex = index;
+            document.querySelectorAll('.hand .card').forEach((card, i) => {
+                card.style.backgroundColor = i === index ? 'lightblue' : 'white';
+            });
+        }
+    
+        function submitYear() {
+            const year = document.getElementById('year').value;
+            if (selectedCardIndex === null || !year) {
+                alert('Please select a card and enter a year.');
+                return;
+            }
+            fetch('/submit_year/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    card_index: selectedCardIndex,
+                    year: year
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerText = data.result;
+                if (data.result === "Correct!") {
+                    document.getElementById('result').className = 'correct';
+                    document.getElementById('points').className = 'correct';
+                    document.getElementById('wrong').className = 'default';
+                } else {
+                    document.getElementById('result').className = 'wrong';
+                    document.getElementById('points').className = 'default';
+                    document.getElementById('wrong').className = 'wrong';
+                }
+                document.getElementById('points').innerText = `Points: ${data.points}`;
+                document.getElementById('wrong').innerText = `Wrong: ${data.wrong}`;
+                const timelineElement = document.getElementById('timeline');
+                timelineElement.innerHTML = data.timeline.map((card, index) => {
+                    let cardClass = '';
+                    if (card.correct === 1) {
+                        cardClass = 'correct-card';
+                    } else if (card.correct === -1) {
+                        cardClass = 'wrong-card';
+                    }
+                    return `<div class="timeline_card ${cardClass}">${card.event} (${card.year})</div>`;
+                }).join('');
+                timelineElement.classList.add('reload-style');
+                setTimeout(() => timelineElement.classList.remove('reload-style'), 500);
+                document.getElementById('hand').innerHTML = data.player_hand.map((card, index) => `<button class="card btn btn-light" onclick="selectCard(${index})">${card.event}</button>`).join('');
+                selectedCardIndex = null;
+                document.getElementById('year').value = '';
+            });
+        }
+    
+        function restartGame() {
+            fetch('/restart_game/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerText = '';
+                document.getElementById('points').innerText = `Points: ${data.points}`;
+                document.getElementById('wrong').innerText = `Wrong: ${data.wrong}`;
+                const timelineElement = document.getElementById('timeline');
+                timelineElement.innerHTML = data.timeline.map((card, index) => {
+                    let cardClass = '';
+                    if (card.correct === 1) {
+                        cardClass = 'correct-card';
+                    } else if (card.correct === -1) {
+                        cardClass = 'wrong-card';
+                    }
+                    return `<div class="timeline_card ${cardClass}">${card.event} (${card.year})</div>`;
+                }).join('');
+                document.getElementById('hand').innerHTML = data.player_hand.map((card, index) => `<button class="card btn btn-light" onclick="selectCard(${index})">${card.event}</button>`).join('');
+                selectedCardIndex = null;
+                document.getElementById('year').value = '';
+            });
+        }
+    </script>
+</body>
+</html>
