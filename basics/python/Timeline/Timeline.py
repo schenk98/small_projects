@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
+from tkinter import filedialog
 
 class TimelineGame:
     def __init__(self, cards_file):
@@ -75,10 +76,11 @@ class TimelineGameGUI:
         self.root = root
         self.root.title("Timeline Game")
         self.points = 0
+        self.wrong = 0
 
         # Fix the size of the GUI window
-        self.root.geometry("400x350")
-        self.root.resizable(False, False)
+        self.root.geometry("500x500")
+        #self.root.resizable(False, False)
 
         # Top section for the scrollable timeline
         self.timeline_frame = tk.Frame(self.root)
@@ -118,23 +120,28 @@ class TimelineGameGUI:
         self.year_entry.grid(row=0, column=1, pady=5)
         self.year_entry.bind("<Return>", self.submit_year)
 
-        self.submit_button = tk.Button(self.input_frame, text="Submit Year", command=self.submit_year, state=tk.DISABLED)
+        self.submit_button = tk.Button(self.input_frame, text="OK", command=self.submit_year, state=tk.DISABLED)
         self.submit_button.grid(row=1, column=1, pady=5)
 
         self.result_label = tk.Label(self.input_frame, text="", font=("Helvetica", 14))
         self.result_label.grid(row=2, column=1, pady=5)
 
-        self.points_label = tk.Label(self.input_frame, text=f"Points: {self.points}", font=("Helvetica", 14), fg="black")
+        self.points_label = tk.Label(self.input_frame, text=f"Body: {self.points}", font=("Helvetica", 14), fg="black")
         self.points_label.grid(row=3, column=1, pady=5)
+        self.wrong_label = tk.Label(self.input_frame, text=f"Chyby: {self.wrong}", font=("Helvetica", 14), fg="black")
+        self.wrong_label.grid(row=4, column=1, pady=5)
 
         self.hand_buttons = []
         for i in range(3):
-            button = tk.Button(self.hand_frame, text="", command=lambda i=i: self.select_card(i), width=20, height=2, wraplength=150)
+            button = tk.Button(self.hand_frame, text="", command=lambda i=i: self.select_card(i), width=20, height=4, wraplength=150, padx=5)
             button.grid(row=i, column=0, pady=5)
             self.hand_buttons.append(button)
 
         self.selected_card_index = None
         self.update_gui()
+
+        self.load_button = tk.Button(self.root, text="Vybrat karty", command=self.load_json_file)
+        self.load_button.pack(pady=10)
 
     def _on_mousewheel(self, event):
         self.timeline_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -167,7 +174,7 @@ class TimelineGameGUI:
 
     def submit_year(self, event=None):
         if self.selected_card_index is None:
-            messagebox.showwarning("Warning", "Please select a card from your hand.")
+            messagebox.showwarning("Upozornění", "Vyber kartu.")
             return
 
         try:
@@ -175,22 +182,38 @@ class TimelineGameGUI:
             position = self.game.find_position_for_year(year)
             if self.game.place_card(self.selected_card_index, position):
                 self.points += 1
-                self.result_label.config(text="Correct placement!", fg="green")
+                self.result_label.config(text="Správně!", fg="green")
                 self.points_label.config(fg="green")
+                self.wrong_label.config(fg="green")
             else:
-                self.result_label.config(text="Incorrect placement.", fg="red")
+                self.wrong += 1
+                self.result_label.config(text="Chyba!", fg="red")
+                self.wrong_label.config(fg="red")
                 self.points_label.config(fg="red")
-            self.points_label.config(text=f"Points: {self.points}")
+
+            self.points_label.config(text=f"Body: {self.points}")
+            self.wrong_label.config(text=f"Chyby: {self.wrong}")
             self.game.draw_card()
             self.selected_card_index = None
             self.year_entry.delete(0, tk.END)
             self.update_gui()
-        except ValueError:
-            messagebox.showwarning("Warning", "Please enter a valid year.")
+
+        except ValueError:            
+            messagebox.showwarning("Upozornění", "Zadej platný rok.")
+            
+    def load_json_file(self):
+        # Open a file dialog to select a JSON file
+        file_path = filedialog.askopenfilename(title="Select a JSON File", filetypes=[("JSON Files", "*.json")])
+        if file_path:
+            # Reload the game with the new file
+            self.game = TimelineGame(file_path)
+            self.update_gui()
 
 def main():
     root = tk.Tk()
-    game = TimelineGame('Mini_projects/basics/python/Timeline/Timeline_cz.json')
+    print("Current working directory:", os.getcwd())
+    game = TimelineGame('small_projects/basics/python/Timeline/Timeline_cz.json')
+    #game = TimelineGame('./Timeline_cz.json')
     gui = TimelineGameGUI(root, game)
     root.mainloop()
 
