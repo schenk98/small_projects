@@ -24,4 +24,5 @@ urlpatterns = [
     path('timeline/', views.timeline_game, name='timeline'),
     path('submit_year/', views.submit_year, name='submit_year'),
     path('restart_game/', views.restart_game, name='restart_game'),  # Přidání endpointu pro restart hry
+    path('pexeso/', views.pexeso_game, name='pexeso'),
 ]

@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Hello, Django!</title>
+    <title>Home</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <h1>Hello, Django!</h1>
-    <a href="{% url 'timeline' %}"><button>Play Game</button></a>
+    <div class="container">
+        <h1>Welcome to the Game Hub</h1>
+        <a href="{% url 'timeline' %}" class="btn btn-primary">Play Timeline Game</a>
+        <a href="{% url 'pexeso' %}" class="btn btn-secondary">Play Pexeso Game</a> <!-- Přidání tlačítka pro pexeso -->
+    </div>
 </body>
 </html>
