@@ -1,0 +1,16 @@
+FROM python:3.8-slim
+
+# Nastavení pracovního adresáře
+WORKDIR /app
+
+# Kopírování požadavků
+COPY requirements.txt .
+
+# Instalace požadavků
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopírování aplikace
+COPY . .
+
+# Spuštění aplikace
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
