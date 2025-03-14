@@ -35,16 +35,11 @@ class GameOfLife:
         self.grid_height = 60
         self.grid = {}
         
-        self.canvas.bind("<Button-1>", self.toggle_cell)
-        self.root.bind("<MouseWheel>", self.zoom)
-        self.canvas.bind("<B3-Motion>", self.pan)
-        self.canvas.bind("<Button-3>", self.start_pan)
+        self.mouse_down = False
         
-        self.offset_x = 0
-        self.offset_y = 0
-        self.zoom_level = 1
-        self.pan_start_x = 0
-        self.pan_start_y = 0
+        self.canvas.bind("<Button-1>", self.on_mouse_down)
+        self.canvas.bind("<ButtonRelease-1>", self.on_mouse_up)
+        self.canvas.bind("<Motion>", self.on_mouse_move)
         
         self.draw_grid()
         
@@ -52,8 +47,8 @@ class GameOfLife:
         self.canvas.delete(tk.ALL)
         for y in range(self.grid_height):
             for x in range(self.grid_width):
-                cell_x = x * self.cell_size + self.offset_x
-                cell_y = y * self.cell_size + self.offset_y
+                cell_x = x * self.cell_size
+                cell_y = y * self.cell_size
                 if (x, y) in self.grid and self.grid[(x, y)] == 1:
                     color = "black"
                 else:
@@ -67,34 +62,26 @@ class GameOfLife:
                     outline="gray"
                 )
                 
+    def on_mouse_down(self, event):
+        self.mouse_down = True
+        self.toggle_cell(event)
+        
+    def on_mouse_up(self, event):
+        self.mouse_down = False
+        
+    def on_mouse_move(self, event):
+        if self.mouse_down:
+            self.toggle_cell(event)
+                
     def toggle_cell(self, event):
-        x = (event.x - self.offset_x) // self.cell_size
-        y = (event.y - self.offset_y) // self.cell_size
-        if (x, y) in self.grid and self.grid[(x, y)] == 1:
-            self.grid[(x, y)] = 0
-        else:
-            self.grid[(x, y)] = 1
-        self.draw_grid()
-            
-    def zoom(self, event):
-        if event.delta > 0:
-            self.cell_size += 1
-        elif event.delta < 0 and self.cell_size > 1:
-            self.cell_size -= 1
-        self.draw_grid()
-        
-    def start_pan(self, event):
-        self.pan_start_x = event.x
-        self.pan_start_y = event.y
-        
-    def pan(self, event):
-        dx = event.x - self.pan_start_x
-        dy = event.y - self.pan_start_y
-        self.offset_x += dx
-        self.offset_y += dy
-        self.pan_start_x = event.x
-        self.pan_start_y = event.y
-        self.draw_grid()
+        x = event.x // self.cell_size
+        y = event.y // self.cell_size
+        if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
+            if (x, y) in self.grid and self.grid[(x, y)] == 1:
+                self.grid[(x, y)] = 0
+            else:
+                self.grid[(x, y)] = 1
+            self.draw_grid()
         
     def toggle_play(self):
         self.playing = not self.playing
