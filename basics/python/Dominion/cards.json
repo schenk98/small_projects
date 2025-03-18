@@ -1,0 +1,67 @@
+[
+    {
+        "name": "Copper",
+        "cost": 0,
+        "type": "Treasure",
+        "description": {
+            "value": 1
+        }
+    },
+    {
+        "name": "Silver",
+        "cost": 3,
+        "type": "Treasure",
+        "description": {
+            "value": 2
+        }
+    },
+    {
+        "name": "Gold",
+        "cost": 6,
+        "type": "Treasure",
+        "description": {
+            "value": 3
+        }
+    },
+    {
+        "name": "Estate",
+        "cost": 2,
+        "type": "Victory",
+        "description": {
+            "points": 1
+        }
+    },
+    {
+        "name": "Duchy",
+        "cost": 5,
+        "type": "Victory",
+        "description": {
+            "points": 3
+        }
+    },
+    {
+        "name": "Province",
+        "cost": 8,
+        "type": "Victory",
+        "description": {
+            "points": 6
+        }
+    },
+    {
+        "name": "Village",
+        "cost": 3,
+        "type": "Action",
+        "description": {
+            "actions": 2,
+            "cards": 1
+        }
+    },
+    {
+        "name": "Smithy",
+        "cost": 4,
+        "type": "Action",
+        "description": {
+            "cards": 3
+        }
+    }
+]
