@@ -5,7 +5,8 @@
         "type": "Treasure",
         "description": {
             "value": 1
-        }
+        },
+        "quantity": 60
     },
     {
         "name": "Silver",
@@ -13,7 +14,8 @@
         "type": "Treasure",
         "description": {
             "value": 2
-        }
+        },
+        "quantity": 40
     },
     {
         "name": "Gold",
@@ -21,7 +23,8 @@
         "type": "Treasure",
         "description": {
             "value": 3
-        }
+        },
+        "quantity": 30
     },
     {
         "name": "Estate",
@@ -29,7 +32,8 @@
         "type": "Victory",
         "description": {
             "points": 1
-        }
+        },
+        "quantity": 24
     },
     {
         "name": "Duchy",
@@ -37,7 +41,8 @@
         "type": "Victory",
         "description": {
             "points": 3
-        }
+        },
+        "quantity": 12
     },
     {
         "name": "Province",
@@ -45,7 +50,8 @@
         "type": "Victory",
         "description": {
             "points": 6
-        }
+        },
+        "quantity": 12
     },
     {
         "name": "Village",
@@ -54,7 +60,8 @@
         "description": {
             "actions": 2,
             "cards": 1
-        }
+        },
+        "quantity": 10
     },
     {
         "name": "Smithy",
@@ -62,6 +69,78 @@
         "type": "Action",
         "description": {
             "cards": 3
-        }
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Market",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "cards": 1,
+            "actions": 1,
+            "buys": 1,
+            "coins": 1
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Laboratory",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "cards": 2,
+            "actions": 1
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Festival",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "actions": 2,
+            "buys": 1,
+            "coins": 2
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Council Room",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "cards": 4,
+            "buys": 1
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Witch",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "cards": 2
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Workshop",
+        "cost": 3,
+        "type": "Action",
+        "description": {
+            "special": "workshop",
+            "effect": "Gain a card costing up to 4"
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Gardens",
+        "cost": 4,
+        "type": "Victory",
+        "description": {
+            "points": 0
+        },
+        "quantity": 12
     }
 ]
