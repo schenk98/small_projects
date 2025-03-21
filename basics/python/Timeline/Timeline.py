@@ -111,7 +111,7 @@ class TimelineGameGUI:
         self.hand_buttons = []
         self.hand_images = []
         for i in range(3):
-            button = tk.Button(self.hand_frame, text="", command=lambda i=i: self.select_card(i), width=30, height=20, wraplength=200, padx=5, pady=5, font=("Helvetica", 18), anchor="s")
+            button = tk.Button(self.hand_frame, text="", command=lambda i=i: self.select_card(i), wraplength=200, padx=5, pady=5, font=("Helvetica", 18), anchor="s", compound="top")
             button.place(relx=i*0.3, rely=0, relwidth=0.30, relheight=1, anchor="nw")
             self.hand_buttons.append(button)
 
@@ -159,10 +159,10 @@ class TimelineGameGUI:
     def update_hand_buttons(self):
         for i, card in enumerate(self.game.player_hand):
             image = Image.open(card['image'])
-            image = image.resize((int(self.hand_buttons[i].winfo_width()), int(self.hand_buttons[i].winfo_height() * 0.7)), Image.Resampling.LANCZOS)
+            image = image.resize((int(self.hand_buttons[i].winfo_width()), int(self.hand_buttons[i].winfo_height() * 0.8)), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(image)
             self.hand_images.append(photo)  # Keep a reference to avoid garbage collection
-            self.hand_buttons[i].config(image=photo, text=card['event'], compound="top", bg="SystemButtonFace", anchor="nw")
+            self.hand_buttons[i].config(image=photo, text=card['event'], compound="top", anchor="n")
 
         # Set button text to empty string if there are no more events
         for i in range(len(self.game.player_hand), 3):
@@ -219,7 +219,8 @@ class TimelineGameGUI:
 def main():
     root = tk.Tk()
     print("Current working directory:", os.getcwd())
-    game = TimelineGame('small_projects/basics/python/Timeline/Timeline_cz.json')
+    #game = TimelineGame('small_projects/basics/python/Timeline/Timeline_cz.json')
+    game = TimelineGame('Mini_projects/basics/python/Timeline/Timeline_cz.json')
     #game = TimelineGame('./Timeline_cz.json')
     gui = TimelineGameGUI(root, game)
     root.mainloop()
