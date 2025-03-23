@@ -1,0 +1,3 @@
+cards_file=../Timeline_cz.json
+points_per_correct_answer=1
+points_per_exact_year=3
