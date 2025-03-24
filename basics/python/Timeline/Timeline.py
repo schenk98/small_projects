@@ -7,6 +7,22 @@ from tkinter import ttk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 
+# Global variables
+CONFIG = {}
+
+def load_config(config_file):
+    global CONFIG
+    if not os.path.exists(config_file):
+        print(f"Error: The config file '{config_file}' does not exist.")
+        return
+    try:
+        with open(config_file, 'r', encoding='utf-8') as file:
+            for line in file:
+                key, value = line.strip().split('=')
+                CONFIG[key] = value
+    except Exception as e:
+        print(f"Error: Failed to read the config file '{config_file}'. {e}")
+
 class TimelineGame:
     def __init__(self, cards_file):
         self.cards = self.load_cards(cards_file)
@@ -49,23 +65,25 @@ class TimelineGame:
         if position == 0:
             if card['year'] <= self.timeline[0]['year']:
                 self.timeline.insert(0, card)
-                return True
+                return True, position
         elif position == len(self.timeline):
             if card['year'] >= self.timeline[-1]['year']:
                 self.timeline.append(card)
-                return True
+                return True, position
         else:
             if self.timeline[position - 1]['year'] <= card['year'] <= self.timeline[position]['year']:
                 self.timeline.insert(position, card)
-                return True
+                return True, position
         # If the card is placed incorrectly, find the correct position and place it there
+        correct_position=0
         for i in range(len(self.timeline)):
             if card['year'] <= self.timeline[i]['year']:
                 self.timeline.insert(i, card)
+                correct_position = i
                 break
         else:
             self.timeline.append(card)
-        return False
+        return False, correct_position
 
     def draw_card(self):
         if self.cards:
@@ -94,7 +112,10 @@ class TimelineGameGUI:
         self.submit_button.grid(row=4, column=1, pady=5)
 
         self.load_button = tk.Button(self.input_frame, text="Vybrat karty", command=self.load_json_file, font=("Helvetica", 16))
-        self.load_button.grid(row=0, column=0, pady=5, columnspan=3)
+        self.load_button.grid(row=0, column=0, pady=5, columnspan=2)
+
+        self.export_button = tk.Button(self.input_frame, text="Export", command=self.export_stats, font=("Helvetica", 16))
+        self.export_button.grid(row=0, column=2, pady=5)
 
         self.result_label = tk.Label(self.input_frame, text="", font=("Helvetica", 16))
         self.result_label.grid(row=1, column=0, columnspan=3, pady=5)
@@ -152,7 +173,7 @@ class TimelineGameGUI:
 
         tk.Label(self.timeline_scrollable_frame, text="Timeline:", font=("Helvetica", 24)).pack()
         for card in self.game.timeline:
-            tk.Label(self.timeline_scrollable_frame, text=f"{card['event']} ({card['year']})", anchor="center", font=("Helvetica", 20), wraplength=self.timeline_frame.winfo_width() - 20).pack(fill="x")
+            tk.Label(self.timeline_scrollable_frame, text=f"{card['event']} ({card['year']})", anchor="center", font=("Helvetica", 20), wraplength=self.timeline_frame.winfo_width() - 20, fg="black").pack(fill="x")
 
         self.root.after(100, self.update_hand_buttons)
 
@@ -172,8 +193,11 @@ class TimelineGameGUI:
         self.submit_button.config(state=tk.DISABLED)
 
     def select_card(self, index):
-        if self.selected_card_index is not None:
-            self.hand_buttons[self.selected_card_index].config(bg="SystemButtonFace")
+        # Unselect all cards
+        for button in self.hand_buttons:
+            button.config(bg="SystemButtonFace")
+        
+        # Select the clicked card
         self.selected_card_index = index
         self.hand_buttons[index].config(bg="lightblue")
         self.submit_button.config(state=tk.NORMAL)
@@ -187,14 +211,20 @@ class TimelineGameGUI:
         try:
             year = int(self.year_entry.get())
             position = self.game.find_position_for_year(year)
-            if self.game.place_card(self.selected_card_index, position):
-                self.points += 1
-                self.result_label.config(text="Správně!", fg="green")
+            card = self.game.player_hand[self.selected_card_index]
+            exact_year = card['year'] == year
+            correct, correct_position = self.game.place_card(self.selected_card_index, position)
+            if correct:
+                if exact_year:
+                    self.points += int(CONFIG.get('points_per_exact_year', 3))
+                else:
+                    self.points += int(CONFIG.get('points_per_correct_answer', 1))
+                #self.result_label.config(text="Správně!", fg="green")
                 self.points_label.config(fg="green")
                 self.wrong_label.config(fg="green")
             else:
                 self.wrong += 1
-                self.result_label.config(text="Chyba!", fg="red")
+                #self.result_label.config(text="Chyba!", fg="red")
                 self.wrong_label.config(fg="red")
                 self.points_label.config(fg="red")
 
@@ -205,9 +235,27 @@ class TimelineGameGUI:
             self.year_entry.delete(0, tk.END)
             self.update_gui()
 
+            # Unselect all cards after submission
+            for button in self.hand_buttons:
+                button.config(bg="SystemButtonFace")
+
+            # Update the timeline to color the last added card
+            self.update_timeline(correct, exact_year, correct_position)
+
         except ValueError:            
             messagebox.showwarning("Upozornění", "Zadej platný rok.")
-            
+
+    def update_timeline(self, correct, exact_year, position):
+        for widget in self.timeline_scrollable_frame.winfo_children():
+            widget.destroy()
+
+        tk.Label(self.timeline_scrollable_frame, text="Timeline:", font=("Helvetica", 24)).pack()
+        for i, card in enumerate(self.game.timeline):
+            color = "black"
+            if i == position:
+                color = "green" if correct else "red"
+            tk.Label(self.timeline_scrollable_frame, text=f"{card['event']} ({card['year']})", anchor="center", font=("Helvetica", 20), wraplength=self.timeline_frame.winfo_width() - 20, fg=color).pack(fill="x")
+
     def load_json_file(self):
         # Open a file dialog to select a JSON file
         file_path = filedialog.askopenfilename(title="Select a JSON File", filetypes=[("JSON Files", "*.json")])
@@ -216,12 +264,25 @@ class TimelineGameGUI:
             self.game = TimelineGame(file_path)
             self.update_gui()
 
+    def export_stats(self):
+        stats = {
+            "points": self.points,
+            "wrong": self.wrong,
+            "timeline": self.game.timeline
+        }
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+        if file_path:
+            with open(file_path, 'w', encoding='utf-8') as file:
+                json.dump(stats, file, ensure_ascii=False, indent=4)
+            messagebox.showinfo("Export", "Statistiky byly úspěšně exportovány.")
+
 def main():
+    # Load configuration
+    load_config('../config.txt')
+    #load_config('Mini_projects/basics/python/Timeline/config.txt')
     root = tk.Tk()
     print("Current working directory:", os.getcwd())
-    #game = TimelineGame('small_projects/basics/python/Timeline/Timeline_cz.json')
-    game = TimelineGame('Mini_projects/basics/python/Timeline/Timeline_cz.json')
-    #game = TimelineGame('./Timeline_cz.json')
+    game = TimelineGame(CONFIG['cards_file'])
     gui = TimelineGameGUI(root, game)
     root.mainloop()
 
