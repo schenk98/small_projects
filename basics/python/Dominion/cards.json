@@ -85,6 +85,16 @@
         "quantity": 10
     },
     {
+        "name": "Woodcutter",
+        "cost": 3,
+        "type": "Action",
+        "description": {
+            "coins": 2,
+            "buys": 1
+        },
+        "quantity": 10
+    },
+    {
         "name": "Laboratory",
         "cost": 5,
         "type": "Action",
@@ -131,6 +141,16 @@
         "description": {
             "special": "workshop",
             "effect": "Gain a card costing up to 4"
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Remodel",
+        "cost": 4,
+        "type": "Action",
+        "description": {
+            "special": "remodel",
+            "effect": "Trash a card from your hand and gain a card costing up to 2 more"
         },
         "quantity": 10
     },

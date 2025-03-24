@@ -1,0 +1,21 @@
+{
+    "cards_in_game": [
+        "Copper",
+        "Silver",
+        "Gold",
+        "Estate",
+        "Duchy",
+        "Province",
+        "Village",
+        "Smithy",
+        "Market",
+        "Laboratory",
+        "Festival",
+        "Council Room",
+        "Witch",
+        "Workshop",
+        "Remodel",
+        "Gardens",
+        "Woodcutter"
+    ]
+}
