@@ -9,6 +9,7 @@ from Player import Player
 
 class Game:
     def __init__(self, root, player_name):
+        self.end_already = False
         self.workshop_active = False
         self.remodel_active = False  # Přidání proměnné pro Přestavbu
         self.remodel_gain_active = False  # Přidání proměnné pro Přestavbu
@@ -43,48 +44,62 @@ class Game:
 
     def create_gui(self):
         self.root.title("Dominion")
-        self.root.geometry("1200x1200")
-
+        self.root.geometry("1200x900")
+        """
         self.shop_frame = ttk.Frame(self.root)
         self.shop_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        self.text_frame = ttk.Frame(self.root)
-        self.text_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.info_frame = ttk.Frame(self.root)
         self.info_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.hand_frame = ttk.Frame(self.root)
         self.hand_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        """
+        # Nastavení hlavního rámce
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Nastavení mřížky pro hlavní rámec
+        self.main_frame.columnconfigure(0, weight=2)  # Levý sloupec (shop + hand)
+        self.main_frame.columnconfigure(1, weight=1)  # Pravý sloupec (info)
+        self.main_frame.rowconfigure(0, weight=1)     # Horní řádek (shop)
+        self.main_frame.rowconfigure(1, weight=1)     # Dolní řádek (hand)
+
+        # Shop (vlevo nahoře)
+        self.shop_frame = ttk.Frame(self.main_frame)
+        self.shop_frame.grid(row=0, column=0, sticky="nsew")
+
+        # Hand (vlevo dole)
+        self.hand_frame = ttk.Frame(self.main_frame)
+        self.hand_frame.grid(row=1, column=0, sticky="nsew")
+
+        # Info (celá pravá strana)
+        self.info_frame = ttk.Frame(self.main_frame)
+        self.info_frame.grid(row=0, column=1, rowspan=2, sticky="nsew")
 
         self.supply_frame = ttk.Frame(self.shop_frame)
         self.supply_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.trash_button = ttk.Button(self.info_frame, text="Trash", command=self.show_trash, bootstyle=INFO)
-        self.trash_button.pack(pady=10)
-
+        self.end_game_button = ttk.Button(self.info_frame, text="End Game", command=self.end_game, bootstyle=INFO)
+        self.end_game_button.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.deck_frame = ttk.Frame(self.info_frame)
         self.deck_frame.pack(side=tk.TOP, fill=tk.X)
 
         self.actions_label = ttk.Label(self.info_frame, text=f"Actions: {self.player.actions}", font=("Helvetica", 16, "bold"))
-        self.actions_label.pack(pady=10)
+        self.actions_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.buys_label = ttk.Label(self.info_frame, text=f"Buys: {self.player.buys}", font=("Helvetica", 16, "bold"))
-        self.buys_label.pack(pady=10)
+        self.buys_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.coins_label = ttk.Label(self.info_frame, text=f"Coins: {self.player.coins}", font=("Helvetica", 16, "bold"))
-        self.coins_label.pack(pady=10)
+        self.coins_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.special_action_label = ttk.Label(self.hand_frame, text="", font=("Helvetica", 16, "bold"))
         self.special_action_label.pack(side=tk.TOP, pady=10)
 
-        self.end_turn_button = ttk.Button(self.info_frame, text="End Turn", command=self.end_turn, bootstyle=SUCCESS)
-        self.end_turn_button.pack(pady=10)
-
-        
-        self.log_text = Text(self.text_frame, height=20, width=30)
-        self.log_text.pack(pady=10)
+        self.log_text = Text(self.info_frame, height=20, width=30)
+        self.log_text.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.update_gui()
 
@@ -126,15 +141,21 @@ class Game:
                 button = tk.Button(self.supply_frame, text="Sold Out", state=tk.DISABLED, width=15, height=10, wraplength=100, justify="center")
                 button.grid(row=i // 6, column=i % 6, padx=10, pady=10)
 
+        trash_button = tk.Button(self.supply_frame, text="Trash", command=self.show_trash, width=15, height=10, wraplength=100, justify="center", bg="brown", fg="black", font=("Helvetica", 10, "bold"))
+        trash_button.grid(row=2, column=5, padx=10, pady=10)
+
         deck_button = tk.Button(self.deck_frame, text="Deck", command=self.show_deck, width=15, height=10, wraplength=100, justify="center", bg="brown", fg="black", font=("Helvetica", 10, "bold"))
-        deck_button.pack(side=tk.TOP, padx=10, pady=10)
+        deck_button.pack(side=tk.BOTTOM, padx=10, pady=10)
 
         discard_button = tk.Button(self.deck_frame, text="Discard", command=self.show_discard, width=15, height=10, wraplength=100, justify="center", bg="brown", fg="black", font=("Helvetica", 10, "bold"))
-        discard_button.pack(side=tk.TOP, padx=10, pady=10)
+        discard_button.pack(side=tk.BOTTOM, padx=10, pady=10)
 
         self.actions_label.config(text=f"Actions: {self.player.actions}")
         self.buys_label.config(text=f"Buys: {self.player.buys}")
         self.coins_label.config(text=f"Coins: {self.player.coins}")
+
+        self.end_turn_button = ttk.Button(self.info_frame, text="End Turn", command=self.end_turn, bootstyle=SUCCESS)
+        self.end_turn_button.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
     def log(self, message, level="INFO"):
         self.log_text.insert(END, f"[{level}] {message}\n")
@@ -150,7 +171,6 @@ class Game:
         special_action = self.player.play_card(card_name)
         if isinstance(special_action, str):
             self.special_action_label.config(text=special_action)
-            return
         self.log(f"Player played {card_name}", "INFO")
         if special_action:
             self.special_action(special_action, card_name)
@@ -178,7 +198,7 @@ class Game:
         self.player.hand.remove(card)
         self.trash.append(card)
         self.log(f"Player trashed {card.name}", "INFO")
-        self.special_action_label.config(text="Select a card to gain")
+        self.special_action_label.config(text="Select a card to gain with cost up to " + str(card.cost + 2))
         self.remodel_card_cost = card.cost
         self.remodel_active = False
         self.remodel_gain_active = True
@@ -209,25 +229,48 @@ class Game:
             self.log(f"Player bought {card.name}", "INFO")
             self.update_gui()
 
+    def show_deck(self):
+        messagebox.showinfo("Deck", "\n".join(str(card) for card in self.player.deck))
+
+    def show_discard(self):
+        messagebox.showinfo("Discard Pile", "\n".join(str(card) for card in self.player.discard_pile))
+
     def end_turn(self):
         self.player.end_turn()
         self.log("Player ended turn", "INFO")
         self.check_end_game()
         self.update_gui()
 
+    def count_points(self, deck):
+        points = 0
+        for card in deck:
+            if card.name == "Estate":
+                points += 1
+            elif card.name == "Duchy":
+                points += 3
+            elif card.name == "Province":
+                points += 6
+        self.log(f"Player scored {points} points", "INFO")
+        return points
+    
     def check_end_game(self):
         empty_piles = sum(1 for card in self.supply if card.quantity == 0)
         provinces = next(c for c in self.supply if c.name == "Province")
-        if empty_piles >= 3 or provinces.quantity == 0:
+        if empty_piles >= 3 or provinces.quantity == 0 or self.end_already:
             self.log("Game Over", "INFO")
-            messagebox.showinfo("Game Over", "The game is over!")
-            self.root.quit()
+            player_points = self.count_points(self.player.deck+self.player.discard_pile+self.player.hand)
+            messagebox.showinfo("Game Over", "The game is over! You earned " + str(player_points) + " points.")
+            #self.root.quit()
+            self.restart_game()
 
-    def show_deck(self):
-        messagebox.showinfo("Deck", "\n".join(str(card) for card in self.player.deck))
-
-    def show_discard(self):
-        messagebox.showinfo("Discard Pile", "\n".join(str(card) for card in self.player.discard_pile))
+    def end_game(self):
+        self.end_already = True
+        self.check_end_game()
+    
+    def restart_game(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+        self.__init__(self.root, "Player 1")
 
 if __name__ == "__main__":
     root = ttk.Window(themename="darkly")
