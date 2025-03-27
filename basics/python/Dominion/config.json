@@ -15,7 +15,19 @@
         "Workshop",
         "Remodel",
         "Gardens",
-        "Woodcutter"
+        "Chapel"
+    ],
+    "starting_cards": [
+        "Copper",
+        "Copper",
+        "Copper",
+        "Copper",
+        "Copper",
+        "Copper",
+        "Copper",
+        "Estate",
+        "Estate",
+        "Estate"
     ],
     "all_cards": [
         "Copper",
@@ -34,6 +46,7 @@
         "Workshop",
         "Remodel",
         "Gardens",
-        "Woodcutter"
+        "Woodcutter",
+        "Chapel"
     ]
 }

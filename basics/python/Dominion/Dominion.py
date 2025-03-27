@@ -14,6 +14,7 @@ class Game:
         self.log_text = Text(self.root, height=20, width=30)  # Initialize log_text here
         self.end_already = False
         self.workshop_active = False
+        self.chapel_active = False
         self.remodel_active = False
         self.remodel_gain_active = False
         self.supply = []
@@ -42,10 +43,14 @@ class Game:
 
     def setup_game(self):
         self.log("Setting up game", "INFO")
-        for _ in range(7):
-            self.player.deck.append(next(c for c in self.supply if c.name == "Copper"))
-        for _ in range(3):
-            self.player.deck.append(next(c for c in self.supply if c.name == "Estate"))
+        starting_cards = self.config["starting_cards"]
+        with open("Mini_projects/basics/python/Dominion/cards.json", "r") as file:
+            cards_data = json.load(file)
+            for starting_card in starting_cards:
+                for card_data in cards_data:
+                    if card_data["name"] == starting_card:
+                        card = Card(card_data["name"], card_data["cost"], card_data["type"], card_data["description"], card_data["quantity"])
+                        self.player.deck.append(card)
         random.shuffle(self.player.deck)
         self.player.draw_hand()
 
@@ -111,6 +116,8 @@ class Game:
             description = "\n".join([f"{key}: {value}" for key, value in card.description.items()])
             if self.remodel_active:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_remodel(c), width=15, height=10, wraplength=100, justify="center")
+            elif self.chapel_active:
+                button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_chapel(c), width=15, height=10, wraplength=100, justify="center")
             else:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.play_card(c.name), width=15, height=10, wraplength=100, justify="center")
             if card.card_type == "Action":
@@ -165,7 +172,7 @@ class Game:
 
     def play_card(self, card_name):
         self.log(f"Attempting to play card: {card_name}", "INFO")
-        if self.workshop_active or self.remodel_active:
+        if self.workshop_active or self.remodel_active or self.chapel_active:
             self.special_action_label.config(text="You must complete the current action before playing another card.")
             return
         special_action = self.player.play_card(card_name)
@@ -185,7 +192,34 @@ class Game:
             self.workshop_action(card_name)
         elif action == "remodel":
             self.special_action_label.config(text="Trash a card from your hand and gain a card costing up to 2 more")
-            self.remodel_action(card_name)            
+            self.remodel_action(card_name)
+        elif action == "chapel":
+            self.special_action_label.config(text="Trash up to 4 cards from your hand")
+            self.chapel_action()
+
+    def chapel_action(self):
+        self.log("Starting chapel action", "INFO")
+        self.chapel_active = True
+        self.chapel_counter = 0
+        self.update_gui()
+
+    def select_card_for_chapel(self, card):
+        if self.chapel_active and self.chapel_counter < 4:
+            self.log(f"Trashing card: {card.name}", "INFO")
+            self.player.hand.remove(card)
+            self.trash.append(card)
+            self.chapel_counter += 1
+            self.special_action_label.config(text=f"Trashed {self.chapel_counter} cards. You can trash {4 - self.chapel_counter} more.")
+            if self.chapel_counter >= 4:
+                self.end_chapel_action()
+            self.update_gui()
+
+    def end_chapel_action(self):
+        self.log("Ending chapel action", "INFO")
+        self.chapel_active = False
+        self.special_action_label.config(text="")
+        self.player.discard_pile.append(Card("Chapel", 2, "Action", {"special": "chapel", "effect": "Trash up to 4 cards"}, 10))
+        self.update_gui()
 
     def remodel_action(self, card_name):
         self.log(f"Starting remodel action for card: {card_name}", "INFO")
@@ -212,6 +246,8 @@ class Game:
 
     def buy_card(self, card):
         self.log(f"Attempting to buy card: {card.name}", "INFO")
+        if self.chapel_active:
+            self.end_chapel_action()
         if self.workshop_active:
             if card.cost <= 4 and card.quantity > 0:
                 self.player.discard_pile.append(Card(card.name, card.cost, card.card_type, card.description, card.quantity))
@@ -235,6 +271,15 @@ class Game:
             card.quantity -= 1
             self.log(f"Player bought {card.name}", "INFO")
             self.update_gui()
+        elif self.player.buys <= 0:
+            self.log("Player has no more buys", "INFO")
+            self.special_action_label.config(text="You have no more buys")
+        elif self.player.coins < card.cost:
+            self.log("Player doesn't have enough coins", "INFO")
+            self.special_action_label.config(text="You don't have enough coins")
+        else:
+            self.log("Player can't buy this card", "INFO")
+            self.special_action_label.config(text="You can't buy this card")
 
     def show_deck(self):
         self.log("Showing deck", "INFO")

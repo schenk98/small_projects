@@ -162,5 +162,15 @@
             "points": 0
         },
         "quantity": 12
+    },
+    {
+        "name": "Chapel",
+        "cost": 2,
+        "type": "Action",
+        "description": {
+            "special": "chapel",
+            "effect": "Trash up to 4 cards"
+        },
+        "quantity": 10
     }
 ]
