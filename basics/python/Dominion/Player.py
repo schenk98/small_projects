@@ -24,14 +24,18 @@ class Player:
         for _ in range(5):
             self.draw_card()
 
-    def play_card(self, card_name):
+    def play_card(self, card_name, cellar_active):
         card = next((c for c in self.hand if c.name == card_name), None)
         if card:
             if card.card_type == "Victory":
                 return "You cannot play Victory cards."
             if card.card_type == "Action" and self.actions <= 0:
                 return "You have no actions left to play this card."
-            self.hand.remove(card)
+            if card_name == "Cellar" and not cellar_active:
+                self.hand.remove(card)
+                self.hand.insert(0, card)
+            if not(card_name == "Cellar" and not cellar_active):
+                self.hand.remove(card)
             special_action = None
             if card.card_type == "Action":
                 self.actions -= 1
@@ -45,8 +49,7 @@ class Player:
 
     def resolve_action(self, card):
         if "cards" in card.description:
-            for _ in range(card.description["cards"]):
-                self.draw_card()
+            self.drawCards(card.description["cards"])
         if "actions" in card.description:
             self.actions += card.description["actions"]
         if "coins" in card.description:
@@ -54,6 +57,10 @@ class Player:
         if "special" in card.description:
             return card.description["special"]
         return None
+
+    def draw_cards(self, num_cards):
+        for _ in range(num_cards):
+            self.draw_card()
 
     def buy_card(self, card):
         if self.coins >= card.cost and self.buys > 0:

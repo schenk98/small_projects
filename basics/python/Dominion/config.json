@@ -10,7 +10,7 @@
         "Smithy",
         "Market",
         "Laboratory",
-        "Festival",
+        "Cellar",
         "Council Room",
         "Workshop",
         "Remodel",
@@ -47,6 +47,7 @@
         "Remodel",
         "Gardens",
         "Woodcutter",
-        "Chapel"
+        "Chapel",
+        "Cellar"
     ]
 }

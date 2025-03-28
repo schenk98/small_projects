@@ -116,6 +116,36 @@
         "quantity": 10
     },
     {
+        "name": "Gardens",
+        "cost": 4,
+        "type": "Victory",
+        "description": {
+            "points": 0
+        },
+        "quantity": 12
+    },
+    {
+        "name": "Militia",
+        "cost": 4,
+        "type": "Action",
+        "description": {
+            "coins": 2,
+            "special": "militia",
+            "effect": "Each other player discards down to 3 cards in hand"
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Mine",
+        "cost": 5,
+        "type": "Action",
+        "description": {
+            "special": "mine",
+            "effect": "Gain a treasure card costing up to 3 more than the trashed card"
+        },
+        "quantity": 10
+    },
+    {
         "name": "Council Room",
         "cost": 5,
         "type": "Action",
@@ -130,7 +160,9 @@
         "cost": 5,
         "type": "Action",
         "description": {
-            "cards": 2
+            "cards": 2,
+            "special": "witch",
+            "effect": "Each other player gains a Curse"
         },
         "quantity": 10
     },
@@ -155,21 +187,23 @@
         "quantity": 10
     },
     {
-        "name": "Gardens",
-        "cost": 4,
-        "type": "Victory",
-        "description": {
-            "points": 0
-        },
-        "quantity": 12
-    },
-    {
         "name": "Chapel",
         "cost": 2,
         "type": "Action",
         "description": {
             "special": "chapel",
             "effect": "Trash up to 4 cards"
+        },
+        "quantity": 10
+    },
+    {
+        "name": "Cellar",
+        "cost": 2,
+        "type": "Action",
+        "description": {
+            "actions": 1,
+            "special": "cellar",
+            "effect": "Discard any number of cards from your hand, then draw that many cards"
         },
         "quantity": 10
     }

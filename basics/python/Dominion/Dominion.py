@@ -17,6 +17,8 @@ class Game:
         self.chapel_active = False
         self.remodel_active = False
         self.remodel_gain_active = False
+        self.cellar_active = False
+        self.discard_counter = 0
         self.supply = []
         self.trash = []
         self.log("Initializing game", "INFO")
@@ -118,6 +120,8 @@ class Game:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_remodel(c), width=15, height=10, wraplength=100, justify="center")
             elif self.chapel_active:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_chapel(c), width=15, height=10, wraplength=100, justify="center")
+            elif self.cellar_active:
+                button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_cellar(c), width=15, height=10, wraplength=100, justify="center")
             else:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.play_card(c.name), width=15, height=10, wraplength=100, justify="center")
             if card.card_type == "Action":
@@ -175,7 +179,7 @@ class Game:
         if self.workshop_active or self.remodel_active or self.chapel_active:
             self.special_action_label.config(text="You must complete the current action before playing another card.")
             return
-        special_action = self.player.play_card(card_name)
+        special_action = self.player.play_card(card_name, self.cellar_active)
         if isinstance(special_action, str):
             self.special_action_label.config(text=special_action)
         self.log(f"Player played {card_name}", "INFO")
@@ -196,7 +200,31 @@ class Game:
         elif action == "chapel":
             self.special_action_label.config(text="Trash up to 4 cards from your hand")
             self.chapel_action()
+        elif action == "cellar":
+            self.special_action_label.config(text="Discard any number of cards, then draw that many.\nSelect cellar on left to end cellar action.")
+            self.cellar_action()
 
+    def cellar_action(self):
+        self.log("Starting cellar action", "INFO")
+        self.cellar_active = True
+        self.discard_counter = 0
+        self.update_gui()
+
+    def select_card_for_cellar(self, card):
+        if self.cellar_active:
+            if self.player.hand.index(card) == 0 and card.name == "Cellar":
+                # End Cellar action
+                self.cellar_active = False
+                self.player.draw_cards(self.discard_counter)
+                self.player.discard_pile.append(self.player.hand.pop(0))
+                self.special_action_label.config(text="")
+            else:
+                # Discard the clicked card
+                self.player.hand.remove(card)
+                self.player.discard_pile.append(card)
+                self.discard_counter += 1
+            self.update_gui()
+            
     def chapel_action(self):
         self.log("Starting chapel action", "INFO")
         self.chapel_active = True
