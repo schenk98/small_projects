@@ -1,4 +1,10 @@
 {
+    "player_names": [
+        "Player 1",
+        "Player 2",
+        "Player 3",
+        "Player 4"
+    ],
     "cards_in_game": [
         "Copper",
         "Silver",

@@ -6,12 +6,12 @@ from ttkbootstrap.constants import *
 from tkinter import messagebox, simpledialog, Text, END
 from Card import Card
 from Player import Player
-from datetime import datetime  # Import datetime module
+from datetime import datetime
 
 class Game:
-    def __init__(self, root, player_name):
+    def __init__(self, root):
         self.root = root
-        self.log_text = Text(self.root, height=20, width=30)  # Initialize log_text here
+        self.log_text = Text(self.root, height=20, width=30)
         self.end_already = False
         self.workshop_active = False
         self.chapel_active = False
@@ -21,18 +21,20 @@ class Game:
         self.discard_counter = 0
         self.supply = []
         self.trash = []
+        self.players = []
+        self.current_player_index = 0  # Track the current player
         self.log("Initializing game", "INFO")
         self.load_config()
         self.load_cards()
-        self.player = Player(player_name)
         self.setup_game()
         self.create_gui()
-
 
     def load_config(self):
         self.log("Loading configuration", "INFO")
         with open("Mini_projects/basics/python/Dominion/config.json", "r") as file:
             self.config = json.load(file)
+            player_names = self.config["player_names"]
+            self.players = [Player(name) for name in player_names]
 
     def load_cards(self):
         self.log("Loading cards", "INFO")
@@ -48,26 +50,27 @@ class Game:
         starting_cards = self.config["starting_cards"]
         with open("Mini_projects/basics/python/Dominion/cards.json", "r") as file:
             cards_data = json.load(file)
-            for starting_card in starting_cards:
-                for card_data in cards_data:
-                    if card_data["name"] == starting_card:
-                        card = Card(card_data["name"], card_data["cost"], card_data["type"], card_data["description"], card_data["quantity"])
-                        self.player.deck.append(card)
-        random.shuffle(self.player.deck)
-        self.player.draw_hand()
+            for player in self.players:
+                for starting_card in starting_cards:
+                    for card_data in cards_data:
+                        if card_data["name"] == starting_card:
+                            card = Card(card_data["name"], card_data["cost"], card_data["type"], card_data["description"], card_data["quantity"])
+                            player.deck.append(card)
+                random.shuffle(player.deck)
+                player.draw_hand()
 
     def create_gui(self):
         self.log("Creating GUI", "INFO")
         self.root.title("Dominion")
-        self.root.geometry("1200x900")
+        self.root.geometry("1200x950")
 
         self.main_frame = ttk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.main_frame.columnconfigure(0, weight=2)  
-        self.main_frame.columnconfigure(1, weight=1)  
-        self.main_frame.rowconfigure(0, weight=1)     
-        self.main_frame.rowconfigure(1, weight=1)     
+        self.main_frame.columnconfigure(0, weight=2)
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
 
         self.shop_frame = ttk.Frame(self.main_frame)
         self.shop_frame.grid(row=0, column=0, sticky="nsew")
@@ -81,19 +84,32 @@ class Game:
         self.supply_frame = ttk.Frame(self.shop_frame)
         self.supply_frame.pack(fill=tk.BOTH, expand=True)
 
+        self.player_buttons_frame = ttk.Frame(self.info_frame)
+        self.player_buttons_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # Create player buttons
+        for i, player in enumerate(self.players):
+            button = ttk.Button(self.player_buttons_frame, text=player.name, command=lambda idx=i: self.switch_player(idx))
+            button.pack(side=tk.LEFT, padx=5, pady=5)
+            if i == self.current_player_index:
+                button.config(bootstyle=SUCCESS)  # Highlight the active player
+
         self.end_game_button = ttk.Button(self.info_frame, text="End Game", command=self.end_game, bootstyle=INFO)
         self.end_game_button.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.deck_frame = ttk.Frame(self.info_frame)
         self.deck_frame.pack(side=tk.TOP, fill=tk.X)
 
-        self.actions_label = ttk.Label(self.info_frame, text=f"Actions: {self.player.actions}", font=("Helvetica", 16, "bold"))
+        self.end_turn_button = ttk.Button(self.info_frame, text="End Turn", command=self.end_turn, bootstyle=SUCCESS)
+        self.end_turn_button.pack(side=tk.BOTTOM, anchor="s", pady=5)
+
+        self.actions_label = ttk.Label(self.info_frame, text=f"Actions: {self.current_player().actions}", font=("Helvetica", 16, "bold"))
         self.actions_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
-        self.buys_label = ttk.Label(self.info_frame, text=f"Buys: {self.player.buys}", font=("Helvetica", 16, "bold"))
+        self.buys_label = ttk.Label(self.info_frame, text=f"Buys: {self.current_player().buys}", font=("Helvetica", 16, "bold"))
         self.buys_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
-        self.coins_label = ttk.Label(self.info_frame, text=f"Coins: {self.player.coins}", font=("Helvetica", 16, "bold"))
+        self.coins_label = ttk.Label(self.info_frame, text=f"Coins: {self.current_player().coins}", font=("Helvetica", 16, "bold"))
         self.coins_label.pack(side=tk.BOTTOM, anchor="s", pady=5)
 
         self.special_action_label = ttk.Label(self.hand_frame, text="", font=("Helvetica", 16, "bold"))
@@ -114,7 +130,14 @@ class Game:
         for widget in self.deck_frame.winfo_children():
             widget.destroy()
 
-        for card in self.player.hand:
+        # Update player buttons to reflect the active player
+        for i, button in enumerate(self.player_buttons_frame.winfo_children()):
+            if i == self.current_player_index:
+                button.config(bootstyle=SUCCESS)
+            else:
+                button.config(bootstyle=SECONDARY)
+
+        for card in self.current_player().hand:
             description = "\n".join([f"{key}: {value}" for key, value in card.description.items()])
             if self.remodel_active:
                 button = tk.Button(self.hand_frame, text=f"{{{card.cost}}} {card.name} \n{description}", command=lambda c=card: self.select_card_for_remodel(c), width=15, height=10, wraplength=100, justify="center")
@@ -156,15 +179,12 @@ class Game:
         discard_button = tk.Button(self.deck_frame, text="Discard", command=self.show_discard, width=15, height=10, wraplength=100, justify="center", bg="brown", fg="black", font=("Helvetica", 10, "bold"))
         discard_button.pack(side=tk.BOTTOM, padx=10, pady=10)
 
-        self.actions_label.config(text=f"Actions: {self.player.actions}")
-        self.buys_label.config(text=f"Buys: {self.player.buys}")
-        self.coins_label.config(text=f"Coins: {self.player.coins}")
-
-        self.end_turn_button = ttk.Button(self.info_frame, text="End Turn", command=self.end_turn, bootstyle=SUCCESS)
-        self.end_turn_button.pack(side=tk.BOTTOM, anchor="s", pady=5)
+        self.actions_label.config(text=f"Actions: {self.current_player().actions}")
+        self.buys_label.config(text=f"Buys: {self.current_player().buys}")
+        self.coins_label.config(text=f"Coins: {self.current_player().coins}")
 
     def log(self, message, level="INFO"):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get current timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_message = f"[{timestamp}] [{level}] {message}"
         print(log_message)
         self.log_text.insert(END, log_message + "\n")
@@ -179,7 +199,7 @@ class Game:
         if self.workshop_active or self.remodel_active or self.chapel_active:
             self.special_action_label.config(text="You must complete the current action before playing another card.")
             return
-        special_action = self.player.play_card(card_name, self.cellar_active)
+        special_action = self.current_player().play_card(card_name, self.cellar_active)
         if isinstance(special_action, str):
             self.special_action_label.config(text=special_action)
         self.log(f"Player played {card_name}", "INFO")
@@ -212,19 +232,17 @@ class Game:
 
     def select_card_for_cellar(self, card):
         if self.cellar_active:
-            if self.player.hand.index(card) == 0 and card.name == "Cellar":
-                # End Cellar action
+            if self.current_player().hand.index(card) == 0 and card.name == "Cellar":
                 self.cellar_active = False
-                self.player.draw_cards(self.discard_counter)
-                self.player.discard_pile.append(self.player.hand.pop(0))
+                self.current_player().draw_cards(self.discard_counter)
+                self.current_player().discard_pile.append(self.current_player().hand.pop(0))
                 self.special_action_label.config(text="")
             else:
-                # Discard the clicked card
-                self.player.hand.remove(card)
-                self.player.discard_pile.append(card)
+                self.current_player().hand.remove(card)
+                self.current_player().discard_pile.append(card)
                 self.discard_counter += 1
             self.update_gui()
-            
+
     def chapel_action(self):
         self.log("Starting chapel action", "INFO")
         self.chapel_active = True
@@ -234,7 +252,7 @@ class Game:
     def select_card_for_chapel(self, card):
         if self.chapel_active and self.chapel_counter < 4:
             self.log(f"Trashing card: {card.name}", "INFO")
-            self.player.hand.remove(card)
+            self.current_player().hand.remove(card)
             self.trash.append(card)
             self.chapel_counter += 1
             self.special_action_label.config(text=f"Trashed {self.chapel_counter} cards. You can trash {4 - self.chapel_counter} more.")
@@ -246,7 +264,7 @@ class Game:
         self.log("Ending chapel action", "INFO")
         self.chapel_active = False
         self.special_action_label.config(text="")
-        self.player.discard_pile.append(Card("Chapel", 2, "Action", {"special": "chapel", "effect": "Trash up to 4 cards"}, 10))
+        self.current_player().discard_pile.append(Card("Chapel", 2, "Action", {"special": "chapel", "effect": "Trash up to 4 cards"}, 10))
         self.update_gui()
 
     def remodel_action(self, card_name):
@@ -263,7 +281,7 @@ class Game:
 
     def select_card_for_remodel(self, card):
         self.log(f"Selecting card for remodel: {card.name}", "INFO")
-        self.player.hand.remove(card)
+        self.current_player().hand.remove(card)
         self.trash.append(card)
         self.log(f"Player trashed {card.name}", "INFO")
         self.special_action_label.config(text="Select a card to gain with cost up to " + str(card.cost + 2))
@@ -278,8 +296,8 @@ class Game:
             self.end_chapel_action()
         if self.workshop_active:
             if card.cost <= 4 and card.quantity > 0:
-                self.player.discard_pile.append(Card(card.name, card.cost, card.card_type, card.description, card.quantity))
-                self.player.discard_pile.append(Card(self.workshop_card_name, 3, "Action", {"special": "workshop", "effect": "Gain a card costing up to 4"}, 10))
+                self.current_player().discard_pile.append(Card(card.name, card.cost, card.card_type, card.description, card.quantity))
+                self.current_player().discard_pile.append(Card(self.workshop_card_name, 3, "Action", {"special": "workshop", "effect": "Gain a card costing up to 4"}, 10))
                 card.quantity -= 1
                 self.workshop_active = False
                 self.special_action_label.config(text="")
@@ -287,22 +305,22 @@ class Game:
                 self.update_gui()
         elif self.remodel_gain_active:
             if card.cost <= self.remodel_card_cost + 2 and card.quantity > 0:
-                self.player.discard_pile.append(Card(card.name, card.cost, card.card_type, card.description, card.quantity))
-                self.player.discard_pile.append(Card(self.remodel_card_name, 4, "Action", {"special": "remodel", "effect": "Trash a card from your hand and gain a card costing up to 2 more"}, 10))
+                self.current_player().discard_pile.append(Card(card.name, card.cost, card.card_type, card.description, card.quantity))
+                self.current_player().discard_pile.append(Card(self.remodel_card_name, 4, "Action", {"special": "remodel", "effect": "Trash a card from your hand and gain a card costing up to 2 more"}, 10))
                 card.quantity -= 1
                 self.remodel_gain_active = False
                 self.special_action_label.config(text="")
                 self.log(f"Player gained {card.name} using Remodel", "INFO")
                 self.update_gui()
-        elif self.player.buys > 0 and self.player.coins >= card.cost and card.quantity > 0:
-            self.player.buy_card(card)
+        elif self.current_player().buys > 0 and self.current_player().coins >= card.cost and card.quantity > 0:
+            self.current_player().buy_card(card)
             card.quantity -= 1
             self.log(f"Player bought {card.name}", "INFO")
             self.update_gui()
-        elif self.player.buys <= 0:
+        elif self.current_player().buys <= 0:
             self.log("Player has no more buys", "INFO")
             self.special_action_label.config(text="You have no more buys")
-        elif self.player.coins < card.cost:
+        elif self.current_player().coins < card.cost:
             self.log("Player doesn't have enough coins", "INFO")
             self.special_action_label.config(text="You don't have enough coins")
         else:
@@ -311,16 +329,17 @@ class Game:
 
     def show_deck(self):
         self.log("Showing deck", "INFO")
-        messagebox.showinfo("Deck", "\n".join(str(card) for card in self.player.deck))
+        messagebox.showinfo("Deck", "\n".join(str(card) for card in self.current_player().deck))
 
     def show_discard(self):
         self.log("Showing discard pile", "INFO")
-        messagebox.showinfo("Discard Pile", "\n".join(str(card) for card in self.player.discard_pile))
+        messagebox.showinfo("Discard Pile", "\n".join(str(card) for card in self.current_player().discard_pile))
 
     def end_turn(self):
         self.log("Ending turn", "INFO")
-        self.player.end_turn()
+        self.current_player().end_turn()
         self.log("Player ended turn", "INFO")
+        self.current_player_index = (self.current_player_index + 1) % len(self.players)  # Switch to the next player
         self.check_end_game()
         self.update_gui()
         self.special_action_label.config(text="")
@@ -337,29 +356,42 @@ class Game:
                 points += 6
         self.log(f"Player scored {points} points", "INFO")
         return points
-    
+
     def check_end_game(self):
         self.log("Checking end game conditions", "INFO")
         empty_piles = sum(1 for card in self.supply if card.quantity == 0)
         provinces = next(c for c in self.supply if c.name == "Province")
         if empty_piles >= 3 or provinces.quantity == 0 or self.end_already:
             self.log("Game Over", "INFO")
-            player_points = self.count_points(self.player.deck+self.player.discard_pile+self.player.hand)
-            messagebox.showinfo("Game Over", "The game is over! You earned " + str(player_points) + " points.")
+            end_game_text = ""
+            for player in self.players:
+                player_points = self.count_points(player.deck + player.discard_pile + player.hand)
+                end_game_text += f"{player.name}: {player_points} points\n"
+                self.log(f"{player.name} scored {player_points} points", "INFO")
+            player_points = self.count_points(self.current_player().deck + self.current_player().discard_pile + self.current_player().hand)
+            messagebox.showinfo("Game Over", end_game_text)
             self.restart_game()
 
     def end_game(self):
         self.log("Ending game", "INFO")
         self.end_already = True
         self.check_end_game()
-    
+
     def restart_game(self):
         self.log("Restarting game", "INFO")
         for widget in self.root.winfo_children():
             widget.destroy()
-        self.__init__(self.root, "Player 1")
+        self.__init__(self.root)
+
+    def switch_player(self, index):
+        self.log(f"Switching to player: {self.players[index].name}", "INFO")
+        self.current_player_index = index
+        self.update_gui()
+
+    def current_player(self):
+        return self.players[self.current_player_index]
 
 if __name__ == "__main__":
     root = ttk.Window(themename="darkly")
-    game = Game(root, "Player 1")
+    game = Game(root)  
     root.mainloop()

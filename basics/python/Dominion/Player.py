@@ -49,11 +49,13 @@ class Player:
 
     def resolve_action(self, card):
         if "cards" in card.description:
-            self.drawCards(card.description["cards"])
+            self.draw_cards(card.description["cards"])
         if "actions" in card.description:
             self.actions += card.description["actions"]
         if "coins" in card.description:
             self.coins += card.description["coins"]
+        if "buys" in card.description:
+            self.buys += card.description["buys"]
         if "special" in card.description:
             return card.description["special"]
         return None
