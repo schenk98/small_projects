@@ -69,6 +69,13 @@ class Grid:
             state.append(state_row)
         return state
 
+    def get_occupancy(self):
+        """Parallel to get_state: occupant player id per cell (0 = empty)."""
+        occ = []
+        for row in self.cells:
+            occ.append([cell.player for cell in row])
+        return occ
+
     def update_cell(self, position, color):
         """Update the color of a cell at the given position."""
         row, col = position
