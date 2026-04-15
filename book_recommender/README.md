@@ -2,7 +2,7 @@
 
 A Dockerized book recommendation system with a Litestar API, simple web UI, Kaggle-based data preparation, typo-tolerant title matching, and AWS EC2 deployment support.
 
-**Live Demo (AWS EC2):** [http://13.51.146.150](http://13.51.146.150)
+**Live Demo (AWS EC2):** [http://13.48.193.19](http://13.48.193.19)
 
 ---
 
@@ -328,3 +328,38 @@ In `prepare_data.py`:
 
 - `DATASET_SLUG`
 - `LOG_LEVEL`
+
+## Possible improvements
+- Performance
+   - Migrate from CSV-based reads to Postgres.
+   - Add indexes for book_title, book_author, and normalized search columns.
+
+- Search quality
+   - Improve fuzzy title matching and ranking.
+   - Add sequel/series-aware suggestions (not only substring; use token similarity + series metadata where possible).
+   - Make author filter optional; allow title-only discovery and author-first browsing.
+
+- Caching layer
+   - Add caching to suggesting algorithm to reduce latency (if needed after csv -> postgres migration)
+
+- Data refresh strategy
+   - Add scheduled data refresh (manual + cron-like trigger) instead of only button-triggered prep.
+   - Move refreshing job into background and adjust web page
+
+- Recommendation quality
+   - Add hybrid ranking (correlation + avg rating + rating count weighting).
+   - Add diversity filter to avoid near-duplicate recommendations (as optional toggle).
+
+- API
+   - App could be improved to work completely with API calls
+   - Current API calls are insufficiently logging activity and not enough edge cases are covered
+
+- Edge cases
+   - There are definitively missed edgecases, that were overlooked in somewhat rushed implementation
+
+- Security 
+   - Before software can be moved into profesional production, the security should be discussed with someone specializing in that
+
+- Testing
+   - Lack of unit and smoke tests for full functionality
+
