@@ -1,109 +1,192 @@
-# Book Recommender
+# Book Recommender Web App
 
-Simple collaborative filtering script based on user rating correlations.
+Web app with:
+- Litestar backend (`app.py`)
+- Minimal TypeScript/HTML/CSS frontend (`frontend/*`)
+- Data preparation pipeline (`prepare_data.py`)
+- Recommendation engine (`book_rec.py`)
 
-## What This Project Does
+## Current Functionality
 
-- Downloads the Book-Crossing-style dataset from Kaggle.
-- Runs a lightweight ETL (`prepare_data.py`) to normalize and clean source CSV files.
-- Builds a user-book rating matrix in `book_rec.py`.
-- Computes Pearson correlation scores to recommend books similar to a target title.
-- Prints top recommendations with correlation and average rating.
+- Download + clean source dataset from Kaggle using a button in the UI.
+- Keep cleaned CSVs (`BX-Books.csv`, `BX-Book-Ratings.csv`) in project folder.
+- Request recommendations via API and display them in a table in browser.
+- Use typo-tolerant title resolution (nearest title match from dataset).
+- Get live title suggestions in GUI based on dataset content.
+- Run fully in Docker on Windows.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    A[Kaggle Dataset] --> B[prepare_data.py]
-    B --> C[Clean BX-Books.csv]
-    B --> D[Clean BX-Book-Ratings.csv]
-    C --> E[book_rec.py]
-    D --> E
-    E --> F[User-Book Pivot]
-    F --> G[Correlation Scores]
-    G --> H[Top Recommendations]
+    FrontendWebUI["Frontend Web UI (HTML + TypeScript + CSS)"] --> BackendApi["Litestar Backend API (app.py)"]
+    BackendApi --> DataPreparationModule["Dataset Preparation Module (prepare_data.py)"]
+    BackendApi --> RecommendationEngine["Recommendation Engine (book_rec.py)"]
+    DataPreparationModule --> CleanedBooksCsv["Cleaned Books Dataset (BX-Books.csv)"]
+    DataPreparationModule --> CleanedRatingsCsv["Cleaned Ratings Dataset (BX-Book-Ratings.csv)"]
+    CleanedBooksCsv --> RecommendationEngine
+    CleanedRatingsCsv --> RecommendationEngine
+    RecommendationEngine --> BackendApi
+    BackendApi --> FrontendWebUI
 ```
 
-## Setup
+## API Endpoints
 
-```bash
-pip install -r requirements.txt
+- `GET /` -> serves web UI
+- `GET /api/health` -> health check
+- `POST /api/prepare-data` -> runs Kaggle download + ETL
+- `POST /api/recommend` -> returns recommendations, including matched title and metrics
+- `GET /api/title-suggestions?q=<query>&top_n=<n>` -> returns title suggestions from dataset
+
+Example request body for `POST /api/recommend`:
+
+```json
+{
+  "target_title": "the fellowship of the ring (the lord of the rings, part 1)",
+  "target_author_substring": "tolkien",
+  "rating_threshold": 8,
+  "top_n": 10
+}
 ```
 
-Required packages are pinned in `requirements.txt` for reproducibility.
+Example response body for `POST /api/recommend`:
 
-## Download and Prepare Data
-
-1. Set Kaggle credentials (`~/.kaggle/kaggle.json`).
-2. Run:
-
-```bash
-python prepare_data.py
+```json
+{
+  "ok": true,
+  "matched_title": "the fellowship of the ring (the lord of the rings, part 1)",
+  "items": [
+    {
+      "book": "the two towers (the lord of the rings, part 2)",
+      "corr": 0.81,
+      "avg_rating": 8.74,
+      "rating_count": 129
+    }
+  ]
+}
 ```
 
-This downloads `arashnic/book-recommendation-dataset`, cleans the source files, and writes:
-- `BX-Books.csv`
-- `BX-Book-Ratings.csv`
+Example response body for `GET /api/title-suggestions`:
 
-Optional flag:
-
-```bash
-python prepare_data.py --keep-downloads
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "title": "harry potter and the chamber of secrets (book 2)",
+      "author": "j. k. rowling",
+      "rating_count": 273,
+      "avg_rating": 8.12
+    }
+  ]
+}
 ```
 
-This keeps the temporary `_downloads` folder instead of deleting it.
+## Recommendation Metrics (Important)
 
-### `prepare_data.py` Flow (simple ETL)
+- `rating_threshold` currently means **minimum rating count** (number of ratings/users for a title in the comparison set), not minimum average score.
+- `avg_rating` is the mean score for each recommended title and can be below 8 even when `rating_threshold = 8`.
+- `corr` is Pearson correlation between target book and candidate book ratings.
+- `rating_count` is a popularity/reliability metric (how many ratings contributed for that title in the filtered set).
 
-1. Authenticate with Kaggle API and download dataset zip.
-2. Extract CSV files from the archive.
-3. Load `Books.csv` and `Ratings.csv`.
-4. Clean books data (column normalization, text cleanup, year parsing, dedup by ISBN).
-5. Clean ratings data (column mapping, numeric parsing, rating-range filter, dedup by `(User-ID, ISBN)`).
-6. Save cleaned outputs as `BX-Books.csv` and `BX-Book-Ratings.csv`.
-7. Remove temporary download folder (unless `--keep-downloads` is used).
+## `prepare_data.py` Flow
+
+1. Authenticate with Kaggle (`kaggle.json`).
+2. Download dataset archive.
+3. Extract source CSV files.
+4. Clean books data:
+   - normalize text/ISBN
+   - parse year
+   - remove invalid rows
+   - deduplicate by `ISBN`
+5. Clean ratings data:
+   - normalize ISBN
+   - parse numeric fields
+   - enforce rating range `[0, 10]`
+   - deduplicate by `(User-ID, ISBN)`
+6. Save cleaned output files.
+7. Remove temporary download folder (unless `--keep-downloads`).
 
 ```mermaid
 flowchart TD
-    A[Start prepare_data.py] --> B[Authenticate Kaggle]
-    B --> C[Download dataset zip]
-    C --> D[Extract CSV files]
-    D --> E[Load Books.csv and Ratings.csv]
-    E --> F[Clean books]
-    E --> G[Clean ratings]
-    F --> H[Save BX-Books.csv]
-    G --> I[Save BX-Book-Ratings.csv]
-    H --> J[Cleanup temp files]
-    I --> J
-    J --> K[Done]
+    PrepareDataScript["prepare_data.py"] --> KaggleAuthStep["Authenticate with Kaggle API"]
+    KaggleAuthStep --> DownloadArchiveStep["Download Dataset ZIP"]
+    DownloadArchiveStep --> ExtractCsvStep["Extract Source CSV Files"]
+    ExtractCsvStep --> CleanBooksStep["Clean and Normalize Books Data"]
+    ExtractCsvStep --> CleanRatingsStep["Clean and Normalize Ratings Data"]
+    CleanBooksStep --> SaveBooksOutput["Write BX-Books.csv"]
+    CleanRatingsStep --> SaveRatingsOutput["Write BX-Book-Ratings.csv"]
+    SaveBooksOutput --> CleanupTempStep["Remove Temporary Download Directory"]
+    SaveRatingsOutput --> CleanupTempStep
 ```
 
-## Run
+## Local Run (without Docker)
 
 ```bash
-python book_rec.py
+pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-## Recommender Details (`book_rec.py`)
+Open [http://localhost:8000](http://localhost:8000).
 
-- Loads `BX-Book-Ratings.csv` and filters out implicit ratings (`Book-Rating == 0`).
-- Loads `BX-Books.csv` and merges on `ISBN`.
-- Normalizes text columns to lowercase for reliable matching.
-- Selects users who rated the target title and match target author substring.
-- Keeps titles with at least `BOOK_RATE_THRESHOLD` ratings among those users.
-- Builds a pivot table (`User-ID` x `Book-Title`) and computes correlations to the target title.
-- Prints top 10 correlated books.
+## Docker Run on Windows
 
-Configurable constants in `book_rec.py`:
+### 1) Install Docker Desktop
 
+1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/).
+2. Enable WSL2 integration during setup.
+3. Start Docker Desktop and wait until it shows "Engine running".
+
+### 2) Verify Docker in PowerShell
+
+```powershell
+docker --version
+docker compose version
+```
+
+### 3) Kaggle credentials
+
+- Put credentials at: `C:\Users\<you>\.kaggle\kaggle.json`
+- JSON format:
+
+```json
+{"username":"your_kaggle_username","key":"your_kaggle_api_key"}
+```
+
+### 4) Build and run app
+
+From `book_recommender` folder:
+
+```powershell
+docker compose build
+docker compose up
+```
+
+Then open [http://localhost:8000](http://localhost:8000).
+
+### 5) Stop app
+
+```powershell
+docker compose down
+```
+
+### 6) Rebuild after code changes
+
+If backend or frontend files change:
+
+```powershell
+docker compose down
+docker compose up --build
+```
+
+## Configurable values
+
+In `book_rec.py`:
 - `TARGET_TITLE`
 - `TARGET_AUTHOR_SUBSTRING`
 - `BOOK_RATE_THRESHOLD`
 - `LOG_LEVEL`
 
-## Notes
-
-- Keep `BX-Book-Ratings.csv` and `BX-Books.csv` in this folder.
-- Change `TARGET_TITLE` in `book_rec.py` to generate recommendations for another seed book.
-- Control verbosity with `LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
-- `prepare_data.py` logs high-level progress at `INFO`; row-level/filter diagnostics are at `DEBUG`.
+In `prepare_data.py`:
+- `DATASET_SLUG`
+- `LOG_LEVEL`

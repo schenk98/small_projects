@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Recommender</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Book Recommender</h1>
+    <p class="subtitle">Run data preparation and generate recommendations from the web UI.</p>
+
+    <section class="card">
+      <h2>Prepare Data</h2>
+      <button id="prepare-btn" type="button">Download + Prepare Data</button>
+      <p id="prepare-status" class="status"></p>
+    </section>
+
+    <section class="card">
+      <h2>Get Recommendations</h2>
+      <form id="recommend-form">
+        <label>
+          Target title
+          <input id="target-title" type="text" list="title-suggestions" required />
+          <datalist id="title-suggestions"></datalist>
+        </label>
+        <label>
+          Author contains
+          <input id="author-substring" type="text" required />
+        </label>
+        <label>
+          Min ratings threshold
+          <input id="threshold" type="number" min="1" value="8" required />
+        </label>
+        <label>
+          Top N
+          <input id="top-n" type="number" min="1" value="10" required />
+        </label>
+        <button type="submit">Recommend</button>
+      </form>
+      <p id="recommend-status" class="status"></p>
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Book</th>
+              <th>Correlation</th>
+              <th>Ratings count</th>
+              <th>Avg rating</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

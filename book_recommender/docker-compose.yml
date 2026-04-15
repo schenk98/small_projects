@@ -1,0 +1,14 @@
+services:
+  book-recommender:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: book-recommender-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - ${USERPROFILE}/.kaggle:/root/.kaggle:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
