@@ -179,6 +179,108 @@ docker compose down
 docker compose up --build
 ```
 
+## Deploy to AWS EC2 (Docker + Secrets Manager)
+
+This project includes `docker-compose.aws.yml` for EC2 deployment.
+
+### Security model
+
+- Kaggle credentials are **not** stored in source code, Docker image, or compose env vars.
+- Credentials are stored in **AWS Secrets Manager**.
+- EC2 fetches the secret to local runtime file: `./secrets/kaggle.json`.
+- Container mounts it read-only to `/root/.kaggle/kaggle.json`.
+
+### 1) Create secret in AWS Secrets Manager
+
+In AWS Console:
+- Open **Secrets Manager** -> **Store a new secret**
+- Secret type: **Other type of secret**
+- Plaintext JSON:
+
+```json
+{"username":"your_kaggle_username","key":"your_kaggle_api_key"}
+```
+
+- Secret name: `book-recommender/kaggle`
+
+### 2) Create IAM role for EC2
+
+Create an EC2 role with permission to read that secret:
+- `secretsmanager:GetSecretValue` on `book-recommender/kaggle`
+
+Attach this IAM role to your EC2 instance (instance profile).
+
+### 3) Launch EC2 instance
+
+- OS: Ubuntu 22.04/24.04
+- Instance type: free-tier eligible (`t2.micro` or equivalent)
+- Security Group inbound:
+  - `SSH` (Type SSH) from **My IP**
+  - `HTTP` (Type HTTP) from `0.0.0.0/0`
+- Keep outbound default allow.
+
+### 4) Connect to EC2
+
+From local terminal:
+
+```bash
+ssh -i /path/to/keypair.pem ubuntu@<EC2_PUBLIC_IP>
+```
+
+### 5) Install runtime dependencies on EC2
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2 git unzip
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+aws --version
+```
+
+### 6) Upload or clone project
+
+Option A: clone from git
+
+```bash
+git clone <your-repo-url>
+cd <repo-root>/book_recommender
+```
+
+Option B: copy from local machine with `scp`.
+
+### 7) Fetch Kaggle secret on EC2
+
+```bash
+chmod +x scripts/fetch_kaggle_secret.sh
+./scripts/fetch_kaggle_secret.sh book-recommender/kaggle ./secrets/kaggle.json
+```
+
+### 8) Build and run on EC2
+
+```bash
+docker compose -f docker-compose.aws.yml up -d --build
+docker ps
+curl http://localhost/api/health
+```
+
+Then open:
+- `http://<EC2_PUBLIC_IP>`
+
+### 9) Operations
+
+```bash
+docker compose -f docker-compose.aws.yml logs -f
+docker compose -f docker-compose.aws.yml restart
+docker compose -f docker-compose.aws.yml down
+```
+
+## Security Notes
+
+- Keep private key files (`*.pem`) outside repository when possible.
+- `secrets/` is git-ignored and docker-ignored to prevent accidental secret leaks.
+- Never commit `kaggle.json`, `.env`, or credential files.
+
 ## Configurable values
 
 In `book_rec.py`:

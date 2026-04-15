@@ -7,5 +7,8 @@ __pycache__/
 *.log
 _downloads/
 .kaggle/
+.env
+.env.*
+secrets/
 review.md
 README.md

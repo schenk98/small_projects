@@ -48,7 +48,7 @@ def download_kaggle_zip(target_dir: Path, dataset_slug: str) -> Path:
         api.authenticate()
     except Exception as exc:
         logger.error("Kaggle authentication failed.")
-        logger.error("Expected credentials in %%USERPROFILE%%\\.kaggle\\kaggle.json or KAGGLE_CONFIG_DIR.")
+        logger.error("Expected credentials in ~/.kaggle/kaggle.json or KAGGLE_CONFIG_DIR.")
         raise RuntimeError("Kaggle authentication failed. Check kaggle.json path/contents.") from exc
     logger.info("Downloading dataset: %s", dataset_slug)
     try:

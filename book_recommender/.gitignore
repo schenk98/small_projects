@@ -1,0 +1,11 @@
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+.env
+.env.*
+!.env.example
+*.kaggle.json
+kaggle.json
