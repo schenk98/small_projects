@@ -19,6 +19,47 @@ h1 {
   margin-bottom: 0.25rem;
 }
 
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-menu {
+  position: relative;
+}
+
+.icon-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.1rem;
+  border-radius: 999px;
+}
+
+.settings-dropdown {
+  position: absolute;
+  right: 0;
+  top: 2.6rem;
+  min-width: 220px;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  display: none;
+  z-index: 20;
+}
+
+.settings-dropdown.visible {
+  display: block;
+}
+
+.settings-dropdown button {
+  width: 100%;
+}
+
 .subtitle {
   margin-top: 0;
   color: #4b5563;
@@ -34,9 +75,9 @@ h1 {
 
 form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem 1rem;
-  align-items: end;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  align-items: start;
 }
 
 label {
@@ -50,6 +91,100 @@ input {
   padding: 0.5rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 0.75rem 1rem;
+}
+
+.suggestion-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem;
+  background: #fafafa;
+}
+
+.suggestion-help {
+  margin: 0 0 0.5rem;
+  color: #4b5563;
+  font-size: 0.88rem;
+}
+
+.suggestion-table-wrap {
+  height: 240px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.suggestion-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+  table-layout: fixed;
+}
+
+.suggestion-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f9fafb;
+}
+
+.suggestion-table th,
+.suggestion-table td {
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+
+.suggestion-table th:nth-child(1),
+.suggestion-table td:nth-child(1) {
+  width: 38%;
+}
+
+.suggestion-table th:nth-child(2),
+.suggestion-table td:nth-child(2) {
+  width: 24%;
+}
+
+.suggestion-table th:nth-child(3),
+.suggestion-table td:nth-child(3) {
+  width: 12%;
+}
+
+.suggestion-table th:nth-child(4),
+.suggestion-table td:nth-child(4) {
+  width: 12%;
+}
+
+.suggestion-table th:nth-child(5),
+.suggestion-table td:nth-child(5) {
+  width: 14%;
+}
+
+.suggestion-table tbody tr {
+  cursor: pointer;
+}
+
+.suggestion-table tbody tr:hover {
+  background: #eff6ff;
+}
+
+.suggestion-empty {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.filters-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem 1rem;
 }
 
 button {
@@ -89,7 +224,8 @@ td {
 }
 
 @media (max-width: 760px) {
-  form {
+  .search-row,
+  .filters-row {
     grid-template-columns: 1fr;
   }
 }

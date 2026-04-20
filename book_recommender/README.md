@@ -23,13 +23,14 @@ This section explains what the system does and how its parts fit together. Deplo
   - correlation score,
   - average rating,
   - rating count.
+- Provides a helper suggestion table (title, author, ratings count, average rating, ISBN) with click-to-prefill of title + ISBN + author.
 
 ### Core Components
 
 - Backend API: `app.py` (Litestar)
 - Recommendation engine: `book_rec.py`
 - Data preparation pipeline: `prepare_data.py`
-- Frontend: `frontend/index.html`, `frontend/app.ts`, `frontend/styles.css`
+- Frontend: `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`
 
 ### High-Level Architecture
 
@@ -62,6 +63,7 @@ Request body for `POST /api/recommend`:
 ```json
 {
   "target_title": "the fellowship of the ring (the lord of the rings, part 1)",
+  "target_isbn": "0345339703",
   "target_author_substring": "tolkien",
   "rating_threshold": 8,
   "top_n": 10
@@ -74,6 +76,9 @@ Response body for `POST /api/recommend`:
 {
   "ok": true,
   "matched_title": "the fellowship of the ring (the lord of the rings, part 1)",
+  "matched_isbn": "0345339703",
+  "total_candidates": 250,
+  "returned_count": 10,
   "items": [
     {
       "book": "the two towers (the lord of the rings, part 2)",
@@ -109,6 +114,8 @@ Response body for `GET /api/title-suggestions`:
 - `avg_rating` is the average score for a recommended title and can be below 8 even when `rating_threshold = 8`.
 - `corr` is Pearson correlation between target book and candidate book.
 - `rating_count` is a confidence/popularity proxy showing how many ratings contributed.
+- `total_candidates` is the number of recommendation candidates before applying `top_n`.
+- `returned_count` is the number actually returned after `top_n` limit.
 
 ### Data Preparation Flow
 

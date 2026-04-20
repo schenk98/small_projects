@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_data(base_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load ratings and books CSV files from disk."""
     ratings = pd.read_csv(base_dir / RATINGS_CSV, encoding="cp1251", sep=";")
     ratings = ratings[ratings["Book-Rating"] != 0]
     books = pd.read_csv(base_dir / BOOKS_CSV, encoding="cp1251", sep=";", on_bad_lines="skip")
@@ -25,34 +26,80 @@ def load_data(base_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def normalize_text_columns(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Lowercase all string columns for case-insensitive matching."""
     return dataframe.apply(lambda col: col.str.lower() if pd.api.types.is_string_dtype(col) else col)
 
 
-def resolve_target_title(candidates: list[str], raw_input: str) -> str:
-    if not candidates:
-        raise ValueError("No candidate titles available for matching.")
+def build_title_metadata(merged_dataset: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate title-level metadata used by matching and suggestions."""
+    return (
+        merged_dataset.groupby(["ISBN", "Book-Title", "Book-Author"])["Book-Rating"]
+        .agg(rating_count="count", avg_rating="mean")
+        .reset_index()
+    )
 
-    query = raw_input.strip().lower()
-    if not query:
+
+def rank_title_candidates(
+    metadata: pd.DataFrame,
+    *,
+    query: str,
+    author_substring: str,
+    top_n: int,
+) -> pd.DataFrame:
+    """Rank title candidates by textual similarity and rating support."""
+    query_norm = query.strip().lower()
+    author_filter = author_substring.strip().lower()
+
+    filtered = metadata.copy()
+    if author_filter:
+        filtered = filtered[filtered["Book-Author"].str.contains(author_filter, na=False)]
+        # Fallback to global title search when author filter is too restrictive.
+        if filtered.empty:
+            filtered = metadata.copy()
+    if not query_norm:
+        return filtered.sort_values(["rating_count", "avg_rating"], ascending=[False, False]).head(top_n)
+
+    def score_title(title: str) -> float:
+        if title == query_norm:
+            return 3.0
+        if title.startswith(query_norm):
+            return 2.0
+        if query_norm in title:
+            return 1.0
+        return SequenceMatcher(None, query_norm, title).ratio()
+
+    filtered = filtered.copy()
+    filtered["score"] = filtered["Book-Title"].map(score_title)
+    return filtered.sort_values(["score", "rating_count", "avg_rating"], ascending=[False, False, False]).head(top_n)
+
+
+def resolve_target_book(
+    metadata: pd.DataFrame,
+    *,
+    raw_title: str,
+    raw_isbn: str | None,
+    author_substring: str,
+) -> tuple[str, str]:
+    """Resolve user input to a concrete title/ISBN pair."""
+    if raw_isbn:
+        isbn_lookup = raw_isbn.strip().upper()
+        isbn_matches = metadata[metadata["ISBN"] == isbn_lookup]
+        if isbn_matches.empty:
+            raise ValueError(f"Provided ISBN not found: {raw_isbn}")
+        best = isbn_matches.sort_values(["rating_count", "avg_rating"], ascending=[False, False]).iloc[0]
+        return str(best["Book-Title"]), str(best["ISBN"])
+
+    if not raw_title.strip():
         raise ValueError("Target title cannot be empty.")
 
-    exact = next((title for title in candidates if title == query), None)
-    if exact is not None:
-        return exact
-
-    substring_matches = [title for title in candidates if query in title]
-    if substring_matches:
-        return min(substring_matches, key=len)
-
-    scored = sorted(
-        ((SequenceMatcher(None, query, title).ratio(), title) for title in candidates),
-        reverse=True,
-        key=lambda item: item[0],
-    )
-    best_score, best_title = scored[0]
+    ranked = rank_title_candidates(metadata, query=raw_title, author_substring=author_substring, top_n=8)
+    if ranked.empty:
+        raise ValueError("No candidate titles available for matching.")
+    best = ranked.iloc[0]
+    best_score = float(best.get("score", 0.0))
     if best_score < 0.45:
         raise ValueError("No close title match found. Try a longer or more specific title.")
-    return best_title
+    return str(best["Book-Title"]), str(best["ISBN"])
 
 
 def title_suggestions(
@@ -61,6 +108,7 @@ def title_suggestions(
     top_n: int = 8,
     base_dir: Path = BASE_DIR,
 ) -> list[dict[str, object]]:
+    """Return ranked title suggestions for autocomplete queries."""
     if top_n < 1:
         raise ValueError("top_n must be >= 1")
     if not query.strip():
@@ -69,31 +117,14 @@ def title_suggestions(
     ratings, books = load_data(base_dir)
     merged_dataset = pd.merge(ratings, books, on=["ISBN"])
     normalized = normalize_text_columns(merged_dataset)
-    query_norm = query.strip().lower()
-
-    metadata = (
-        normalized.groupby("Book-Title")
-        .agg(
-            rating_count=("Book-Rating", "count"),
-            avg_rating=("Book-Rating", "mean"),
-            author=("Book-Author", "first"),
-        )
-        .reset_index()
-    )
-
-    def score_title(title: str) -> float:
-        if title.startswith(query_norm):
-            return 2.0
-        if query_norm in title:
-            return 1.0
-        return SequenceMatcher(None, query_norm, title).ratio()
-
-    metadata["score"] = metadata["Book-Title"].map(score_title)
-    ranked = metadata.sort_values(["score", "rating_count"], ascending=[False, False]).head(top_n)
+    metadata = build_title_metadata(normalized)
+    ranked = rank_title_candidates(metadata, query=query, author_substring="", top_n=top_n)
     return [
         {
             "title": row["Book-Title"],
-            "author": row["author"],
+            "isbn": row["ISBN"],
+            "author": row["Book-Author"],
+            "score": float(row.get("score", 0.0)),
             "rating_count": int(row["rating_count"]),
             "avg_rating": float(row["avg_rating"]),
         }
@@ -104,24 +135,29 @@ def title_suggestions(
 def build_recommendation_frame(
     merged_books_ratings: pd.DataFrame,
     target_title: str,
+    target_isbn: str | None,
     author_substring: str,
     min_rating_count: int,
-) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, pd.DataFrame, str, str]:
+    """Build pivot and ratings data used for correlation scoring."""
     normalized = normalize_text_columns(merged_books_ratings)
-    author_filter = author_substring.strip().lower()
-    if author_filter:
-        author_match = normalized["Book-Author"].str.contains(author_filter, na=False)
-    else:
-        author_match = pd.Series([True] * len(normalized), index=normalized.index)
-    candidate_titles = sorted(normalized.loc[author_match, "Book-Title"].dropna().unique().tolist())
-    resolved_target_title = resolve_target_title(candidate_titles, target_title)
+    metadata = build_title_metadata(normalized)
+    resolved_target_title, resolved_target_isbn = resolve_target_book(
+        metadata,
+        raw_title=target_title,
+        raw_isbn=target_isbn,
+        author_substring=author_substring,
+    )
     title_match = normalized["Book-Title"] == resolved_target_title
+    isbn_match = normalized["ISBN"] == resolved_target_isbn
+    author_filter = author_substring.strip().lower()
+    author_match = normalized["Book-Author"].str.contains(author_filter, na=False) if author_filter else True
 
     logger.debug("merged dataset shape: %s", merged_books_ratings.shape)
     logger.debug("title exact matches in merged dataset: %s", int(title_match.sum()))
-    logger.debug("title+author matches in merged dataset: %s", int((title_match & author_match).sum()))
+    logger.debug("isbn exact matches in merged dataset: %s", int(isbn_match.sum()))
 
-    target_readers = np.unique(normalized["User-ID"][title_match & author_match].tolist())
+    target_readers = np.unique(normalized["User-ID"][isbn_match & author_match].tolist())
     logger.debug("unique target readers: %s", len(target_readers))
 
     books_of_target_readers = normalized[normalized["User-ID"].isin(target_readers)]
@@ -145,10 +181,11 @@ def build_recommendation_frame(
     dataset_for_corr = ratings_data_nodup.pivot(index="User-ID", columns="Book-Title", values="Book-Rating")
     logger.debug("dataset_for_corr shape: %s", dataset_for_corr.shape)
     logger.debug("target title present in pivot columns: %s", resolved_target_title in dataset_for_corr.columns)
-    return dataset_for_corr, ratings_data, resolved_target_title
+    return dataset_for_corr, ratings_data, resolved_target_title, resolved_target_isbn
 
 
 def compute_correlations(target_title: str, dataset_for_corr: pd.DataFrame, ratings_data: pd.DataFrame) -> pd.DataFrame:
+    """Compute per-title correlation and rating metrics."""
     dataset_of_other_books = dataset_for_corr.copy(deep=False)
     dataset_of_other_books.drop([target_title], axis=1, inplace=True)
 
@@ -174,17 +211,20 @@ def compute_correlations(target_title: str, dataset_for_corr: pd.DataFrame, rati
         list(zip(book_titles, correlations, avg_ratings, rating_counts)),
         columns=["book", "corr", "avg_rating", "rating_count"],
     )
-    return correlation_frame
+    # Drop undefined correlations caused by insufficient overlap/variance.
+    return correlation_frame[correlation_frame["corr"].notna()].reset_index(drop=True)
 
 
 def generate_recommendations(
     *,
     target_title: str,
+    target_isbn: str | None,
     target_author_substring: str,
     rating_threshold: int,
     top_n: int = 10,
     base_dir: Path = BASE_DIR,
-) -> tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str, str, int]:
+    """Generate top-N recommendations and resolved target title."""
     if rating_threshold < 1:
         raise ValueError("rating_threshold must be >= 1")
     if top_n < 1:
@@ -195,9 +235,10 @@ def generate_recommendations(
     logger.debug("books shape: %s", books.shape)
 
     merged_dataset = pd.merge(ratings, books, on=["ISBN"])
-    dataset_for_corr, ratings_data, resolved_target_title = build_recommendation_frame(
+    dataset_for_corr, ratings_data, resolved_target_title, resolved_target_isbn = build_recommendation_frame(
         merged_dataset,
         target_title,
+        target_isbn,
         target_author_substring,
         rating_threshold,
     )
@@ -209,19 +250,22 @@ def generate_recommendations(
         )
 
     correlation_frame = compute_correlations(resolved_target_title, dataset_for_corr, ratings_data)
+    total_candidates = len(correlation_frame)
     top_recommendations = correlation_frame.sort_values("corr", ascending=False).head(top_n)
-    return top_recommendations, resolved_target_title
+    return top_recommendations, resolved_target_title, resolved_target_isbn, total_candidates
 
 
 def main() -> None:
+    """Run recommendation flow from CLI with default constants."""
     ratings, books = load_data(BASE_DIR)
     logger.debug("ratings shape: %s", ratings.shape)
     logger.debug("books shape: %s", books.shape)
 
     merged_dataset = pd.merge(ratings, books, on=["ISBN"])
-    dataset_for_corr, ratings_data, resolved_target_title = build_recommendation_frame(
+    dataset_for_corr, ratings_data, resolved_target_title, _ = build_recommendation_frame(
         merged_dataset,
         TARGET_TITLE,
+        None,
         TARGET_AUTHOR_SUBSTRING,
         BOOK_RATE_THRESHOLD,
     )

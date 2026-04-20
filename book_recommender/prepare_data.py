@@ -18,11 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 def log_row_delta(step: str, before_count: int, after_count: int) -> None:
+    """Log row count changes after a cleaning step."""
     removed = before_count - after_count
     logger.debug("%s -> rows: %s -> %s (removed: %s)", step, before_count, after_count, removed)
 
 
 def normalize_isbn(series: pd.Series) -> pd.Series:
+    """Normalize ISBN values to uppercase alphanumeric form."""
     return (
         series.astype(str)
         .str.upper()
@@ -32,6 +34,7 @@ def normalize_isbn(series: pd.Series) -> pd.Series:
 
 
 def normalize_text(series: pd.Series) -> pd.Series:
+    """Collapse whitespace and trim text values."""
     return (
         series.astype(str)
         .str.replace(r"\s+", " ", regex=True)
@@ -40,6 +43,7 @@ def normalize_text(series: pd.Series) -> pd.Series:
 
 
 def download_kaggle_zip(target_dir: Path, dataset_slug: str) -> Path:
+    """Download the Kaggle dataset archive and return zip path."""
     from kaggle.api.kaggle_api_extended import KaggleApi
 
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +74,7 @@ def download_kaggle_zip(target_dir: Path, dataset_slug: str) -> Path:
 
 
 def extract_zip(zip_path: Path, target_dir: Path) -> None:
+    """Extract a downloaded dataset archive into target directory."""
     logger.info("Extracting: %s", zip_path.name)
     try:
         with ZipFile(zip_path, "r") as zf:
@@ -84,6 +89,7 @@ def extract_zip(zip_path: Path, target_dir: Path) -> None:
 
 
 def clean_ratings(raw_ratings: pd.DataFrame) -> pd.DataFrame:
+    """Clean and standardize ratings dataset fields."""
     ratings = raw_ratings.copy()
     logger.debug("Ratings raw shape: %s", ratings.shape)
     if ratings.empty:
@@ -124,6 +130,7 @@ def clean_ratings(raw_ratings: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean_books(raw_books: pd.DataFrame) -> pd.DataFrame:
+    """Clean and standardize books dataset fields."""
     books = raw_books.copy()
     logger.debug("Books raw shape: %s", books.shape)
     if books.empty:
@@ -187,6 +194,7 @@ def clean_books(raw_books: pd.DataFrame) -> pd.DataFrame:
 
 
 def save_outputs(clean_books_df: pd.DataFrame, clean_ratings_df: pd.DataFrame, output_dir: Path) -> None:
+    """Save cleaned books and ratings to project CSV outputs."""
     books_path = output_dir / OUTPUT_BOOKS
     ratings_path = output_dir / OUTPUT_RATINGS
 
@@ -207,6 +215,7 @@ def save_outputs(clean_books_df: pd.DataFrame, clean_ratings_df: pd.DataFrame, o
 
 
 def prepare_dataset(work_dir: Path, keep_downloads: bool) -> None:
+    """Run full ETL flow: download, clean, save, and cleanup."""
     downloads_dir = work_dir / "_downloads"
     logger.info("Preparing dataset in directory: %s", work_dir)
     zip_path = download_kaggle_zip(downloads_dir, DATASET_SLUG)
@@ -235,12 +244,14 @@ def prepare_dataset(work_dir: Path, keep_downloads: bool) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI options for dataset preparation script."""
     parser = argparse.ArgumentParser(description="Download and clean book recommender dataset from Kaggle.")
     parser.add_argument("--keep-downloads", action="store_true", help="Keep temporary downloaded zip and extracted files.")
     return parser.parse_args()
 
 
 def main() -> None:
+    """Execute dataset preparation from CLI."""
     args = parse_args()
     prepare_dataset(Path(__file__).resolve().parent, keep_downloads=args.keep_downloads)
 

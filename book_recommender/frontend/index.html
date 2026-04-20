@@ -8,35 +8,65 @@
 </head>
 <body>
   <main class="container">
-    <h1>Book Recommender</h1>
+    <div class="header-row">
+      <h1>Book Recommender</h1>
+      <div class="settings-menu">
+        <button id="settings-toggle" class="icon-button" type="button" aria-label="Open settings">⚙</button>
+        <div id="settings-dropdown" class="settings-dropdown">
+          <button id="prepare-btn" type="button">Download + Prepare Data</button>
+        </div>
+      </div>
+    </div>
     <p class="subtitle">Run data preparation and generate recommendations from the web UI.</p>
-
-    <section class="card">
-      <h2>Prepare Data</h2>
-      <button id="prepare-btn" type="button">Download + Prepare Data</button>
-      <p id="prepare-status" class="status"></p>
-    </section>
+    <p id="prepare-status" class="status"></p>
 
     <section class="card">
       <h2>Get Recommendations</h2>
       <form id="recommend-form">
-        <label>
-          Target title
-          <input id="target-title" type="text" list="title-suggestions" required />
-          <datalist id="title-suggestions"></datalist>
-        </label>
-        <label>
-          Author contains
-          <input id="author-substring" type="text" required />
-        </label>
-        <label>
-          Min ratings threshold
-          <input id="threshold" type="number" min="1" value="8" required />
-        </label>
-        <label>
-          Top N
-          <input id="top-n" type="number" min="1" value="10" required />
-        </label>
+        <div class="search-row">
+          <label>
+            Target title
+            <input id="target-title" type="text" autocomplete="off" />
+          </label>
+          <label>
+            Target ISBN (optional)
+            <input id="target-isbn" type="text" placeholder="e.g. 0261103571" />
+          </label>
+        </div>
+
+        <div class="suggestion-panel">
+          <p class="suggestion-help">Suggested matches (click row to fill Title + ISBN):</p>
+          <div class="suggestion-table-wrap">
+            <table id="title-suggestions" class="suggestion-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Author</th>
+                  <th>Ratings count</th>
+                  <th>Avg rating</th>
+                  <th>ISBN</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="filters-row">
+          <label>
+            Author contains (optional)
+            <input id="author-substring" type="text" />
+          </label>
+          <label>
+            Min ratings threshold
+            <input id="threshold" type="number" min="1" value="8" required />
+          </label>
+          <label>
+            Top N
+            <input id="top-n" type="number" min="1" value="10" required />
+          </label>
+        </div>
+
         <button type="submit">Recommend</button>
       </form>
       <p id="recommend-status" class="status"></p>

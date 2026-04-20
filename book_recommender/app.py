@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RecommendationRequest:
     target_title: str = TARGET_TITLE
+    target_isbn: str | None = None
     target_author_substring: str = TARGET_AUTHOR_SUBSTRING
     rating_threshold: int = BOOK_RATE_THRESHOLD
     top_n: int = 10
@@ -50,21 +51,25 @@ class ApiMessage:
 
 @get("/")
 async def root() -> Response[str]:
+    """Serve the frontend entry page."""
     index_html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     return Response(content=index_html, media_type="text/html")
 
 
 @get("/api/health")
 async def health() -> dict[str, str]:
+    """Return a lightweight health status."""
     return {"status": "ok"}
 
 
 @post("/api/recommend")
 async def recommend(data: RecommendationRequest) -> dict[str, object]:
+    """Generate recommendations for the requested title."""
     logger.info("Recommendation request for title: %s", data.target_title)
     try:
-        frame, resolved_target_title = generate_recommendations(
+        frame, resolved_target_title, resolved_target_isbn, total_candidates = generate_recommendations(
             target_title=data.target_title.lower(),
+            target_isbn=(data.target_isbn or "").strip() or None,
             target_author_substring=data.target_author_substring.lower(),
             rating_threshold=data.rating_threshold,
             top_n=data.top_n,
@@ -77,12 +82,16 @@ async def recommend(data: RecommendationRequest) -> dict[str, object]:
     return {
         "ok": True,
         "matched_title": resolved_target_title,
+        "matched_isbn": resolved_target_isbn,
+        "total_candidates": total_candidates,
+        "returned_count": len(items),
         "items": [asdict(item) for item in items],
     }
 
 
 @get("/api/title-suggestions")
 async def suggest_titles(q: str = "", top_n: int = 8) -> dict[str, object]:
+    """Return ranked title suggestions for autocomplete."""
     try:
         suggestions = title_suggestions(query=q, top_n=top_n, base_dir=BASE_DIR)
     except Exception as exc:
@@ -93,6 +102,7 @@ async def suggest_titles(q: str = "", top_n: int = 8) -> dict[str, object]:
 
 @post("/api/prepare-data")
 async def trigger_prepare_data() -> ApiMessage:
+    """Run data download and cleaning pipeline."""
     logger.info("Manual prepare-data trigger called.")
     try:
         prepare_dataset(BASE_DIR, keep_downloads=False)
