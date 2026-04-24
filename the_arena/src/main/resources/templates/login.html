@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Arena - Login</title>
+</head>
+<body>
+<h1>The Arena Login</h1>
+<p>Register or log in to get your Bearer token.</p>
+
+<label>Username <input id="username" type="text"></label><br>
+<label>Password <input id="password" type="password"></label><br><br>
+
+<button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+<button onclick="goArena()">Go to Arena Page</button>
+
+<pre id="output"></pre>
+
+<script>
+    window.addEventListener('load', async () => {
+        const token = localStorage.getItem('arena_token');
+        if (!token) {
+            return;
+        }
+        const valid = await isTokenValid(token);
+        if (valid) {
+            window.location.href = '/ui/arena';
+        } else {
+            localStorage.removeItem('arena_token');
+        }
+    });
+
+    function payload() {
+        return {
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        };
+    }
+
+    async function register() {
+        await callAuth('/auth/register');
+    }
+
+    async function login() {
+        await callAuth('/auth/login');
+    }
+
+    async function callAuth(path) {
+        const res = await fetch(path, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload())
+        });
+        const data = await res.json();
+        if (data.accessToken) {
+            localStorage.setItem('arena_token', data.accessToken);
+            if (data.refreshToken) {
+                localStorage.setItem('arena_refresh_token', data.refreshToken);
+            }
+            window.location.href = '/ui/arena';
+            return;
+        }
+        showResponse(data, res.ok);
+    }
+
+    function goArena() {
+        window.location.href = '/ui/arena';
+    }
+
+    async function isTokenValid(token) {
+        try {
+            const res = await fetch('/auth/me/achievements', {
+                method: 'GET',
+                headers: {'Authorization': `Bearer ${token}`}
+            });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function showResponse(data, ok) {
+        if (ok) {
+            document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+            return;
+        }
+        const details = data.details && Object.keys(data.details).length > 0
+            ? '\n' + Object.entries(data.details).map(([k, v]) => `- ${k}: ${v}`).join('\n')
+            : '';
+        const message = data.message || data.error || 'Request failed.';
+        document.getElementById('output').textContent = `Error: ${message}${details}`;
+    }
+</script>
+</body>
+</html>

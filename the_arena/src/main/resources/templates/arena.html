@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Arena - Battle</title>
+</head>
+<body>
+<h1>The Arena</h1>
+<p>Battle, inventory, and content authoring console.</p>
+
+<h3>Battle</h3>
+<p><small><strong>Random</strong> uses your equipped gear from MySQL and rolls a random Mongo monster with randomized equipment. <strong>Duel</strong> pits two <code>monster_templates</code> documents against each other (copy <code>id</code> from <strong>List Contestants</strong>).</small></p>
+<label>Display name override (optional): <input id="playerName" type="text" value=""></label>
+<button type="button" onclick="startBattleRandom()">Start random battle</button>
+<fieldset style="margin-top:12px;">
+    <legend>Duel by template id</legend>
+    <label>Contestant A template id <input id="duelPlayerTemplateId" type="text" placeholder="24 hex Mongo _id" style="width:280px;"></label><br>
+    <label>Contestant B template id <input id="duelEnemyTemplateId" type="text" placeholder="24 hex Mongo _id" style="width:280px;"></label><br>
+    <button type="button" onclick="startBattleDuel()">Start duel</button>
+</fieldset>
+<button type="button" onclick="attack()">Attack</button>
+<button type="button" onclick="quickResult()">Quick Result</button>
+<button type="button" onclick="fullReplay()">Full Replay</button>
+
+<h3>Stash &amp; equipment</h3>
+<p><small>Equipped items are used in <strong>random</strong> battles. Loot goes to <strong>stash</strong>. Equipping swaps with whatever is already in that slot (the old piece returns to stash). Consumables cannot be equipped; up to three in stash are carried into battle.</small></p>
+<button type="button" onclick="refreshStashOverview()">Refresh stash &amp; equipment</button>
+<div id="equippedPanel" style="margin:10px 0; padding:10px; border:1px solid #ccc; min-height:2em;"><em>Click refresh to load equipped row…</em></div>
+<div id="stashPanel" style="margin:10px 0; padding:10px; border:1px solid #aaa; min-height:2em;"><em>Click refresh to load stash…</em></div>
+
+<h3>Account</h3>
+<button type="button" onclick="achievements()">My Achievements</button>
+<button type="button" onclick="inventoryAllRows()">My inventory (all rows)</button>
+<button type="button" onclick="logout()">Logout</button>
+
+<h3>Create Item</h3>
+<label>Type <input id="itemType" value="weapon"></label>
+<label>Name <input id="itemName" value=""></label>
+<label>Description <input id="itemDescription" value=""></label>
+<label>Special Effect <input id="itemSpecial" value=""></label>
+<label>Attributes (JSON) <input id="itemAttributes" value='{"physicalDamage":10,"magicalDamage":0,"handMode":"SINGLE_HAND"}'></label>
+<button onclick="createItem()">Create Item</button>
+<button onclick="listItems()">List Items</button>
+
+<h3>Create Contestant Template</h3>
+<p><small>Equipment slots use <code>item_definitions._id</code> (24 hex chars). Use <strong>List Items</strong> and copy each item’s <code>id</code>.</small></p>
+<label>Name <input id="contestantName" value=""></label>
+<label>Description <input id="contestantDescription" value=""></label>
+<label>HP <input id="contestantHp" type="number" value="80"></label>
+<label>Left hand item id <input id="contestantLeftId" placeholder="item_definitions _id"></label>
+<label>Body wear item id <input id="contestantBodyId" placeholder="item_definitions _id"></label>
+<label>Accessory item id <input id="contestantAccessoryId" placeholder="item_definitions _id"></label>
+<button onclick="createContestant()">Create Contestant</button>
+<button onclick="listContestants()">List Contestants</button>
+
+<pre id="output" style="white-space: pre-wrap;"></pre>
+
+<script>
+    let sessionId = null;
+    window.addEventListener('load', async () => {
+        const token = localStorage.getItem('arena_token');
+        if (!token) {
+            window.location.href = '/ui/login';
+            return;
+        }
+        const valid = await isTokenValid(token);
+        if (!valid) {
+            localStorage.removeItem('arena_token');
+            window.location.href = '/ui/login';
+            return;
+        }
+        refreshStashOverview();
+    });
+
+    function tokenHeader() {
+        const token = localStorage.getItem('arena_token');
+        return {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'};
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function startBattleRandom() {
+        const playerName = document.getElementById('playerName').value.trim();
+        const body = {mode: 'RANDOM'};
+        if (playerName) body.playerName = playerName;
+        const res = await fetch('/arena/start', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        sessionId = data.sessionId ?? null;
+        showResponse(data, res.ok);
+    }
+
+    async function startBattleDuel() {
+        const playerTemplateId = document.getElementById('duelPlayerTemplateId').value.trim();
+        const enemyTemplateId = document.getElementById('duelEnemyTemplateId').value.trim();
+        const res = await fetch('/arena/start', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify({
+                mode: 'DUEL',
+                playerTemplateId,
+                enemyTemplateId
+            })
+        });
+        const data = await res.json();
+        sessionId = data.sessionId ?? null;
+        showResponse(data, res.ok);
+    }
+
+    async function attack() {
+        if (!sessionId) {
+            document.getElementById('output').textContent = 'Start battle first.';
+            return;
+        }
+        const res = await fetch('/arena/turn', {
+            method: 'PATCH',
+            headers: tokenHeader(),
+            body: JSON.stringify({sessionId, action: 'attack'})
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function achievements() {
+        const res = await fetch('/auth/me/achievements', {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function inventoryAllRows() {
+        const res = await fetch('/inventory/me', {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    function renderEquipped(rows) {
+        const el = document.getElementById('equippedPanel');
+        if (!rows || rows.length === 0) {
+            el.innerHTML = '<strong>Equipped</strong>: <em>nothing equipped</em>';
+            return;
+        }
+        const lines = rows.map(r => {
+            const slot = r.equipSlot != null ? r.equipSlot : '';
+            return `<div><strong>${escapeHtml(slot)}</strong> — ${escapeHtml(r.itemName)} <small>(${escapeHtml(r.itemType)}) id ${r.id}</small></div>`;
+        });
+        el.innerHTML = '<strong>Equipped</strong>' + lines.join('');
+    }
+
+    function renderStash(rows) {
+        const el = document.getElementById('stashPanel');
+        if (!rows || rows.length === 0) {
+            el.innerHTML = '<strong>Stash</strong>: <em>empty</em>';
+            return;
+        }
+        const blocks = rows.map(r => {
+            const t = (r.itemType || '').toUpperCase();
+            let actions = `<button type="button" onclick="scrapItem(${r.id})">Scrap</button>`;
+            if (t === 'WEAPON') {
+                actions = `<button type="button" onclick="equipItem(${r.id}, 'LEFT_HAND')">Equip left</button> ` +
+                    `<button type="button" onclick="equipItem(${r.id}, 'RIGHT_HAND')">Equip right</button> ` + actions;
+            } else if (t === 'WEARABLE') {
+                actions = `<button type="button" onclick="equipItem(${r.id}, 'BODY')">Equip body</button> ` + actions;
+            } else if (t === 'ACCESSORY') {
+                actions = `<button type="button" onclick="equipItem(${r.id}, 'ACCESSORY')">Equip accessory</button> ` + actions;
+            } else if (t === 'CONSUMABLE') {
+                actions = `<span class="hint">(carried if among newest 3 consumables in stash)</span> ` + actions;
+            }
+            return `<div style="margin:6px 0; padding:6px; background:#f7f7f7;"><strong>${escapeHtml(r.itemName)}</strong> <small>${escapeHtml(r.itemType)} id ${r.id}</small><br>${actions}</div>`;
+        });
+        el.innerHTML = '<strong>Stash</strong>' + blocks.join('');
+    }
+
+    async function refreshStashOverview() {
+        const res = await fetch('/inventory/overview', {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+        if (res.ok && data) {
+            renderEquipped(data.equipped);
+            renderStash(data.stash);
+        }
+    }
+
+    async function readJsonOrEmpty(res) {
+        const text = await res.text();
+        if (!text || !text.trim()) return {};
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return {raw: text};
+        }
+    }
+
+    async function equipItem(inventoryItemId, equipSlot) {
+        const res = await fetch('/inventory/equip', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify({inventoryItemId, equipSlot})
+        });
+        const data = await readJsonOrEmpty(res);
+        if (!res.ok) {
+            showResponse(data, false);
+            return;
+        }
+        document.getElementById('output').textContent = 'Equipped OK.';
+        await refreshStashOverview();
+    }
+
+    async function scrapItem(inventoryItemId) {
+        if (!confirm('Scrap this item permanently?')) return;
+        const res = await fetch('/inventory/scrap', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify({inventoryItemId})
+        });
+        const data = await readJsonOrEmpty(res);
+        if (!res.ok) {
+            showResponse(data, false);
+            return;
+        }
+        document.getElementById('output').textContent = 'Scrapped.';
+        await refreshStashOverview();
+    }
+
+    async function quickResult() {
+        if (!sessionId) {
+            document.getElementById('output').textContent = 'Start battle first.';
+            return;
+        }
+        const res = await fetch(`/arena/history/${sessionId}/result`, {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function fullReplay() {
+        if (!sessionId) {
+            document.getElementById('output').textContent = 'Start battle first.';
+            return;
+        }
+        const res = await fetch(`/arena/history/${sessionId}/replay`, {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function listItems() {
+        const res = await fetch('/content/items', {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function createItem() {
+        let attrs = {};
+        try {
+            attrs = JSON.parse(document.getElementById('itemAttributes').value || '{}');
+        } catch (e) {
+            document.getElementById('output').textContent = 'Invalid item attributes JSON.';
+            return;
+        }
+        const payload = {
+            itemType: document.getElementById('itemType').value,
+            name: document.getElementById('itemName').value,
+            description: document.getElementById('itemDescription').value,
+            image: '',
+            specialEffect: document.getElementById('itemSpecial').value,
+            attributes: attrs
+        };
+        const res = await fetch('/content/items', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function listContestants() {
+        const res = await fetch('/content/contestants', {
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function createContestant() {
+        const payload = {
+            name: document.getElementById('contestantName').value,
+            description: document.getElementById('contestantDescription').value,
+            baseHealth: Number(document.getElementById('contestantHp').value),
+            leftHandItemId: document.getElementById('contestantLeftId').value.trim() || null,
+            rightHandItemId: null,
+            bodyWearItemId: document.getElementById('contestantBodyId').value.trim() || null,
+            accessoryItemId: document.getElementById('contestantAccessoryId').value.trim() || null
+        };
+        const res = await fetch('/content/contestants', {
+            method: 'POST',
+            headers: tokenHeader(),
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        showResponse(data, res.ok);
+    }
+
+    async function logout() {
+        if (sessionId) {
+            await fetch('/arena/snapshot', {
+                method: 'POST',
+                headers: tokenHeader(),
+                body: JSON.stringify({sessionId})
+            });
+        }
+        await fetch('/auth/logout', {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${localStorage.getItem('arena_token')}`}
+        });
+        localStorage.removeItem('arena_token');
+        localStorage.removeItem('arena_refresh_token');
+        sessionId = null;
+        window.location.href = '/ui/login';
+    }
+
+    async function isTokenValid(token) {
+        try {
+            const res = await fetch('/auth/me/achievements', {
+                method: 'GET',
+                headers: {'Authorization': `Bearer ${token}`}
+            });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function showResponse(data, ok) {
+        if (ok) {
+            document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+            return;
+        }
+        const details = data.details && Object.keys(data.details).length > 0
+            ? '\n' + Object.entries(data.details).map(([k, v]) => `- ${k}: ${v}`).join('\n')
+            : '';
+        const message = data.message || data.error || 'Request failed.';
+        document.getElementById('output').textContent = `Error: ${message}${details}`;
+    }
+</script>
+</body>
+</html>
