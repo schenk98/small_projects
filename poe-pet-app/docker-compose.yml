@@ -1,0 +1,27 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: poe-pet-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: poe_pet
+    volumes:
+      - mongo_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+      - ./mongodb/seed-shop-items.json:/seed/seed-shop-items.json:ro
+      - ./mongodb/seed-minigames.json:/seed/seed-minigames.json:ro
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: poe-pet-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  mongo_data:

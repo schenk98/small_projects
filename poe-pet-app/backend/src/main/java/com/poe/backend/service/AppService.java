@@ -1,0 +1,949 @@
+package com.poe.backend.service;
+
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.poe.backend.model.InventoryItem;
+import com.poe.backend.model.MinigameConfig;
+import com.poe.backend.model.MinigameSession;
+import com.poe.backend.model.PetState;
+import com.poe.backend.model.PetVisualAsset;
+import com.poe.backend.model.ShopItem;
+import com.poe.backend.model.UserAccount;
+import com.poe.backend.model.UserToken;
+import com.poe.backend.model.Wallet;
+import com.poe.backend.repo.InventoryRepo;
+import com.poe.backend.repo.MinigameRepo;
+import com.poe.backend.repo.MinigameSessionRepo;
+import com.poe.backend.repo.PetStateRepo;
+import com.poe.backend.repo.PetVisualAssetRepo;
+import com.poe.backend.repo.ShopItemRepo;
+import com.poe.backend.repo.UserAccountRepo;
+import com.poe.backend.repo.UserTokenRepo;
+import com.poe.backend.repo.WalletRepo;
+
+@Service
+public class AppService {
+    private final UserAccountRepo userAccountRepo;
+    private final UserTokenRepo userTokenRepo;
+    private final PetStateRepo petStateRepo;
+    private final WalletRepo walletRepo;
+    private final ShopItemRepo shopItemRepo;
+    private final InventoryRepo inventoryRepo;
+    private final MinigameRepo minigameRepo;
+    private final MinigameSessionRepo minigameSessionRepo;
+    private final PetVisualAssetRepo petVisualAssetRepo;
+    private final JavaMailSender mailSender;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final SecureRandom random = new SecureRandom();
+
+    @Value("${app.webBaseUrl}")
+    private String webBaseUrl;
+    @Value("${app.apiBaseUrl}")
+    private String apiBaseUrl;
+    @Value("${app.accessTokenHours}")
+    private long accessTokenHours;
+    @Value("${app.refreshTokenDays}")
+    private long refreshTokenDays;
+    /** Comma-separated developer emails (see application.yml). */
+    @Value("${app.privilegedEmails:}")
+    private String privilegedEmailsCsv;
+
+    public AppService(UserAccountRepo userAccountRepo, UserTokenRepo userTokenRepo, PetStateRepo petStateRepo,
+            WalletRepo walletRepo, ShopItemRepo shopItemRepo, InventoryRepo inventoryRepo,
+            MinigameRepo minigameRepo, MinigameSessionRepo minigameSessionRepo, PetVisualAssetRepo petVisualAssetRepo,
+            JavaMailSender mailSender) {
+        this.userAccountRepo = userAccountRepo;
+        this.userTokenRepo = userTokenRepo;
+        this.petStateRepo = petStateRepo;
+        this.walletRepo = walletRepo;
+        this.shopItemRepo = shopItemRepo;
+        this.inventoryRepo = inventoryRepo;
+        this.minigameRepo = minigameRepo;
+        this.minigameSessionRepo = minigameSessionRepo;
+        this.petVisualAssetRepo = petVisualAssetRepo;
+        this.mailSender = mailSender;
+    }
+
+    public Map<String, Object> register(String email, String password) {
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        if (!passwordValid(password)) {
+            throw new RuntimeException("Password must be >=5 chars and include at least one digit OR one uppercase.");
+        }
+        if (userAccountRepo.findByEmail(normalizedEmail).isPresent()) {
+            throw new RuntimeException("Email already used.");
+        }
+
+        UserAccount user = new UserAccount();
+        user.email = normalizedEmail;
+        user.passwordHash = passwordEncoder.encode(password);
+        user.emailVerified = false;
+        user.createdAt = Instant.now();
+        user = userAccountRepo.save(user);
+
+        initializeUserGameData(user.id);
+        sendVerificationMail(user);
+        return Map.of("message", "Account created. Verify your email.");
+    }
+
+    public Map<String, Object> verifyEmail(String tokenValue) {
+        UserToken token = userTokenRepo.findByTokenAndTypeAndUsedFalseAndExpiresAtAfter(tokenValue, "VERIFY_EMAIL", Instant.now())
+                .orElseThrow(() -> new RuntimeException("Invalid verification token."));
+        UserAccount user = userAccountRepo.findById(token.userId).orElseThrow();
+        user.emailVerified = true;
+        userAccountRepo.save(user);
+        token.used = true;
+        userTokenRepo.save(token);
+        return Map.of("message", "Email verified.");
+    }
+
+    public Map<String, Object> login(String email, String password) {
+        UserAccount user = userAccountRepo.findByEmail(email.trim().toLowerCase(Locale.ROOT))
+                .orElseThrow(() -> new RuntimeException("Invalid credentials."));
+        if (!user.emailVerified) {
+            throw new RuntimeException("Email not verified.");
+        }
+        if (!passwordEncoder.matches(password, user.passwordHash)) {
+            throw new RuntimeException("Invalid credentials.");
+        }
+        return issueAuthTokens(user.id, user.email);
+    }
+
+    public Map<String, Object> refresh(String refreshToken) {
+        UserToken token = userTokenRepo.findByTokenAndTypeAndUsedFalseAndExpiresAtAfter(refreshToken, "REFRESH", Instant.now())
+                .orElseThrow(() -> new RuntimeException("Invalid refresh token."));
+        return issueAuthTokens(token.userId, userAccountRepo.findById(token.userId).orElseThrow().email);
+    }
+
+    public Map<String, Object> forgotPassword(String email) {
+        Optional<UserAccount> userOpt = userAccountRepo.findByEmail(email.trim().toLowerCase(Locale.ROOT));
+        if (userOpt.isEmpty()) {
+            return Map.of("message", "If account exists, reset mail has been sent.");
+        }
+        UserAccount user = userOpt.get();
+        UserToken token = makeToken(user.id, "RESET_PASSWORD", Duration.ofHours(2));
+        sendMail(user.email, "Reset password",
+                "Open this reset link: " + webBaseUrl + "/reset-password?token=" + token.token);
+        return Map.of("message", "If account exists, reset mail has been sent.");
+    }
+
+    public Map<String, Object> resetPassword(String tokenValue, String newPassword) {
+        if (!passwordValid(newPassword)) {
+            throw new RuntimeException("Password policy failed.");
+        }
+        UserToken token = userTokenRepo.findByTokenAndTypeAndUsedFalseAndExpiresAtAfter(tokenValue, "RESET_PASSWORD", Instant.now())
+                .orElseThrow(() -> new RuntimeException("Invalid reset token."));
+        UserAccount user = userAccountRepo.findById(token.userId).orElseThrow();
+        user.passwordHash = passwordEncoder.encode(newPassword);
+        userAccountRepo.save(user);
+        token.used = true;
+        userTokenRepo.save(token);
+        return Map.of("message", "Password reset done.");
+    }
+
+    public Map<String, Object> me(String userId) {
+        UserAccount user = userAccountRepo.findById(userId).orElseThrow();
+        return Map.of("id", user.id, "email", user.email, "emailVerified", user.emailVerified);
+    }
+
+    public PetState getPet(String userId) {
+        PetState pet = simulate(userId);
+        petStateRepo.save(pet);
+        return pet;
+    }
+
+    public Map<String, Object> getDashboard(String userId) {
+        PetState pet = getPet(userId);
+        Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
+        Map<String, Object> res = new HashMap<>();
+        res.put("pet", pet);
+        res.put("wallet", wallet);
+        res.put("privileged", isPrivileged(userId));
+        res.put("rewardPreview", buildRewardPreview(userId));
+        return res;
+    }
+
+    /** Visible to clients to gate developer tools UI. */
+    public boolean isPrivileged(String userId) {
+        UserAccount u = userAccountRepo.findById(userId).orElseThrow();
+        return u.privileged || privilegedEmailMatches(u.email);
+    }
+
+    private boolean privilegedEmailMatches(String email) {
+        if (email == null || privilegedEmailsCsv == null || privilegedEmailsCsv.isBlank()) {
+            return false;
+        }
+        String n = email.trim().toLowerCase(Locale.ROOT);
+        for (String p : privilegedEmailsCsv.split(",")) {
+            String t = p.trim().toLowerCase(Locale.ROOT);
+            if (!t.isEmpty() && n.equals(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Map<String, Object> devGrantCoins(String userId, int amount) {
+        if (!isPrivileged(userId)) {
+            throw new RuntimeException("Forbidden");
+        }
+        Wallet w = walletRepo.findByUserId(userId).orElseThrow();
+        w.coins += Math.max(0, amount);
+        walletRepo.save(w);
+        return Map.of("ok", true, "coins", w.coins);
+    }
+
+    public Map<String, Object> devRefillStats(String userId) {
+        if (!isPrivileged(userId)) {
+            throw new RuntimeException("Forbidden");
+        }
+        PetState pet = simulate(userId);
+        pet.hunger = 100;
+        pet.happiness = 100;
+        pet.energy = 100;
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "pet", pet);
+    }
+
+    public Map<String, Object> devSetStats(String userId, double hungerPct, double happinessPct, double energyPct) {
+        if (!isPrivileged(userId)) {
+            throw new RuntimeException("Forbidden");
+        }
+        PetState pet = simulate(userId);
+        pet.hunger = clamp(hungerPct * 100.0);
+        pet.happiness = clamp(happinessPct * 100.0);
+        pet.energy = clamp(energyPct * 100.0);
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "pet", pet);
+    }
+
+    /**
+     * Server-side preview of coin payouts with the same rules as finish endpoints (including COIN_MULT consumables).
+     */
+    public Map<String, Object> buildRewardPreview(String userId) {
+        PetState pet = simulate(userId);
+        double mult = coinMultiplierForPet(pet, Instant.now());
+        MinigameSession hl = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower").orElse(null);
+        MinigameConfig hlGame = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElse(null);
+        int streak = hl != null ? hl.streak : 0;
+        int hlMax = hlGame != null ? maxRewardCap(hlGame) : 72;
+        int hlBase = GameMath.shiftedFibonacciReward(streak, hlMax);
+        int hlPayout = applyCoinMultiplierToBase(hlBase, mult);
+
+        MinigameConfig pz = minigameRepo.findByCodeAndActiveTrue("puzzle_swap").orElse(null);
+        Map<String, Integer> puzzleAtScore = new HashMap<>();
+        if (pz != null) {
+            for (int s : new int[] { 8, 18, 36, 72 }) {
+                int raw = calculateSimpleRewardBase(pz, s);
+                puzzleAtScore.put("score_" + s, applyCoinMultiplierToBase(raw, mult));
+            }
+        }
+
+        Map<String, Integer> c4 = new HashMap<>();
+        MinigameConfig c4g = minigameRepo.findByCodeAndActiveTrue("connect4_ai").orElse(null);
+        if (c4g != null) {
+            c4.put("win", applyCoinMultiplierToBase(calculateConnect4BaseReward(c4g, 2), mult));
+            c4.put("draw", applyCoinMultiplierToBase(calculateConnect4BaseReward(c4g, 1), mult));
+            c4.put("loss", applyCoinMultiplierToBase(calculateConnect4BaseReward(c4g, 0), mult));
+        }
+
+        Map<String, Integer> ms = new HashMap<>();
+        MinigameConfig msg = minigameRepo.findByCodeAndActiveTrue("minesweep_ai").orElse(null);
+        if (msg != null) {
+            ms.put("win", applyCoinMultiplierToBase(calculateConnect4BaseReward(msg, 2), mult));
+            ms.put("loss", applyCoinMultiplierToBase(calculateConnect4BaseReward(msg, 0), mult));
+        }
+        Map<String, Integer> chk = new HashMap<>();
+        MinigameConfig chg = minigameRepo.findByCodeAndActiveTrue("checkers_ai").orElse(null);
+        if (chg != null) {
+            chk.put("win", applyCoinMultiplierToBase(calculateConnect4BaseReward(chg, 2), mult));
+            chk.put("draw", applyCoinMultiplierToBase(calculateConnect4BaseReward(chg, 1), mult));
+            chk.put("loss", applyCoinMultiplierToBase(calculateConnect4BaseReward(chg, 0), mult));
+        }
+
+        Map<String, Integer> energyCosts = new HashMap<>();
+        for (MinigameConfig m : minigameRepo.findByActiveTrue()) {
+            energyCosts.put(m.code, m.energyCost);
+        }
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("coinMultiplier", round2(mult));
+        out.put("energyCosts", energyCosts);
+        out.put("higherLower", Map.of(
+                "hasActiveSession", hl != null,
+                "streak", streak,
+                "coinsIfFinishNow", hlPayout,
+                "fibonacciCap", hlMax));
+        out.put("puzzle_swap", Map.of("coinsBySampleScore", puzzleAtScore));
+        out.put("connect4_ai", Map.of("coinsByOutcome", c4));
+        out.put("minesweep_ai", Map.of("coinsByOutcome", ms));
+        out.put("checkers_ai", Map.of("coinsByOutcome", chk));
+        return out;
+    }
+
+    public List<ShopItem> shopItems() {
+        return shopItemRepo.findByActiveTrue().stream()
+                .filter(AppService::isPlayerVisibleInShop)
+                .toList();
+    }
+
+    /** Catalog rows: {@code playerVisible == false} hides from shop; null or true shows (backward compatible). */
+    private static boolean isPlayerVisibleInShop(ShopItem item) {
+        return item.playerVisible == null || Boolean.TRUE.equals(item.playerVisible);
+    }
+
+    public Map<String, Object> purchase(String userId, String itemCode) {
+        ShopItem item = shopItemRepo.findByCodeAndActiveTrue(itemCode).orElseThrow(() -> new RuntimeException("Item not found"));
+        if (!isPlayerVisibleInShop(item)) {
+            throw new RuntimeException("Item not available");
+        }
+        Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
+        if (wallet.coins < item.priceCoins) {
+            throw new RuntimeException("Not enough coins");
+        }
+
+        if ("CONSUMABLE".equals(item.type)) {
+            wallet.coins -= item.priceCoins;
+            walletRepo.save(wallet);
+            InventoryItem inv = inventoryRepo.findByUserIdAndItemCode(userId, item.code).orElseGet(() -> {
+                InventoryItem i = new InventoryItem();
+                i.userId = userId;
+                i.itemCode = item.code;
+                i.quantity = 0;
+                return i;
+            });
+            inv.quantity += 1;
+            inventoryRepo.save(inv);
+            return Map.of("ok", true);
+        }
+
+        if ("COSMETIC".equals(item.type)) {
+            String visualCode = extractGrantVisualAssetCode(item);
+            if (visualCode == null || visualCode.isBlank()) {
+                throw new RuntimeException("Cosmetic item missing GRANT_VISUAL effect");
+            }
+            petVisualAssetRepo.findByCodeAndActiveTrue(visualCode)
+                    .orElseThrow(() -> new RuntimeException("Unknown visual asset: " + visualCode));
+            PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+            migratePetVisualFields(pet);
+            if (pet.ownedVisualAssetCodes.contains(visualCode)) {
+                throw new RuntimeException("Already owned");
+            }
+            wallet.coins -= item.priceCoins;
+            walletRepo.save(wallet);
+            pet.ownedVisualAssetCodes.add(visualCode);
+            petStateRepo.save(pet);
+            return Map.of("ok", true, "grantedVisualAssetCode", visualCode);
+        }
+
+        throw new RuntimeException("Unsupported shop item type: " + item.type);
+    }
+
+    public List<InventoryItem> inventory(String userId) {
+        return inventoryRepo.findByUserId(userId);
+    }
+
+    public List<PetVisualAsset> petVisualCatalog() {
+        return petVisualAssetRepo.findByActiveTrue().stream()
+                .sorted((a, b) -> {
+                    int t = String.valueOf(a.assetType).compareTo(String.valueOf(b.assetType));
+                    if (t != 0) {
+                        return t;
+                    }
+                    return String.valueOf(a.code).compareTo(String.valueOf(b.code));
+                })
+                .toList();
+    }
+
+    public Map<String, Object> setSpecies(String userId, String speciesCode) {
+        String normalized = speciesCode == null ? "" : speciesCode.trim().toLowerCase(Locale.ROOT);
+        if (!"dog".equals(normalized) && !"cat".equals(normalized)) {
+            throw new RuntimeException("Species must be dog or cat");
+        }
+        PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+        pet.speciesCode = normalized;
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "speciesCode", normalized);
+    }
+
+    public Map<String, Object> setMoodAssets(String userId, Map<String, String> moodAssetCodes) {
+        if (moodAssetCodes == null) {
+            throw new RuntimeException("moodAssetCodes is required");
+        }
+        PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+        String species = (pet.speciesCode == null || pet.speciesCode.isBlank()) ? "dog" : pet.speciesCode;
+        Map<String, String> next = new HashMap<>();
+        for (String mood : List.of("happy", "sad", "hungry", "tired", "playing_dead")) {
+            String code = moodAssetCodes.get(mood);
+            if (code == null || code.isBlank() || "none".equalsIgnoreCase(code)) {
+                continue;
+            }
+            PetVisualAsset asset = petVisualAssetRepo.findByCodeAndActiveTrue(code)
+                    .orElseThrow(() -> new RuntimeException("Unknown asset code: " + code));
+            if (!"PET_MOOD".equals(asset.assetType)) {
+                throw new RuntimeException("Asset is not PET_MOOD: " + code);
+            }
+            if (!mood.equalsIgnoreCase(asset.moodCode)) {
+                throw new RuntimeException("Asset mood mismatch for " + mood);
+            }
+            if (!species.equalsIgnoreCase(asset.speciesCode)) {
+                throw new RuntimeException("Asset species mismatch for current species");
+            }
+            if (!asset.starter && (pet.ownedVisualAssetCodes == null || !pet.ownedVisualAssetCodes.contains(code))) {
+                throw new RuntimeException("You do not own this mood visual: " + code);
+            }
+            next.put(mood, code);
+        }
+        pet.moodAssetCodes = next;
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "moodAssetCodes", next);
+    }
+
+    public Map<String, Object> equipVisualLayers(String userId, String backgroundAssetCode, String foregroundAssetCode) {
+        PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+        migratePetVisualFields(pet);
+        if (backgroundAssetCode != null && !backgroundAssetCode.isBlank() && !"none".equalsIgnoreCase(backgroundAssetCode)) {
+            PetVisualAsset bg = petVisualAssetRepo.findByCodeAndActiveTrue(backgroundAssetCode)
+                    .orElseThrow(() -> new RuntimeException("Unknown background asset"));
+            if (!"BACKGROUND".equals(bg.assetType)) {
+                throw new RuntimeException("Not a background asset");
+            }
+            if (!bg.starter && !pet.ownedVisualAssetCodes.contains(backgroundAssetCode)) {
+                throw new RuntimeException("You do not own this background");
+            }
+            pet.equippedBackgroundAssetCode = backgroundAssetCode;
+        } else {
+            pet.equippedBackgroundAssetCode = null;
+        }
+        if (foregroundAssetCode != null && !foregroundAssetCode.isBlank() && !"none".equalsIgnoreCase(foregroundAssetCode)) {
+            PetVisualAsset fg = petVisualAssetRepo.findByCodeAndActiveTrue(foregroundAssetCode)
+                    .orElseThrow(() -> new RuntimeException("Unknown foreground asset"));
+            if (!"FOREGROUND".equals(fg.assetType)) {
+                throw new RuntimeException("Not a foreground asset");
+            }
+            if (!fg.starter && !pet.ownedVisualAssetCodes.contains(foregroundAssetCode)) {
+                throw new RuntimeException("You do not own this foreground");
+            }
+            pet.equippedForegroundAssetCode = foregroundAssetCode;
+        } else {
+            pet.equippedForegroundAssetCode = null;
+        }
+        petStateRepo.save(pet);
+        return Map.of(
+                "ok", true,
+                "equippedBackgroundAssetCode", pet.equippedBackgroundAssetCode == null ? "" : pet.equippedBackgroundAssetCode,
+                "equippedForegroundAssetCode", pet.equippedForegroundAssetCode == null ? "" : pet.equippedForegroundAssetCode);
+    }
+
+    public Map<String, Object> useConsumable(String userId, String itemCode, boolean confirmOverwrite) {
+        InventoryItem inv = inventoryRepo.findByUserIdAndItemCode(userId, itemCode)
+                .orElseThrow(() -> new RuntimeException("Item not owned"));
+        if (inv.quantity <= 0) {
+            throw new RuntimeException("No quantity");
+        }
+        if (minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower").isPresent()) {
+            throw new RuntimeException("Cannot use consumables during active minigame");
+        }
+
+        ShopItem item = shopItemRepo.findByCodeAndActiveTrue(itemCode).orElseThrow();
+        PetState pet = simulate(userId);
+
+        if (item.effectKey != null) {
+            PetState.ActiveEffect existing = pet.activeEffects.stream()
+                    .filter(a -> item.effectKey.equals(a.effectKey) && a.expiresAt.isAfter(Instant.now()))
+                    .findFirst()
+                    .orElse(null);
+            if (existing != null) {
+                double newValue = extractEnergyMultiplier(item.effects);
+                if (Math.abs(existing.value - newValue) < 0.0001) {
+                    existing.expiresAt = Instant.now().plus(Duration.ofHours(extractDurationHours(item.effects)));
+                    petStateRepo.save(pet);
+                    consumeItem(inv);
+                    return Map.of("ok", true, "message", "Effect timer reset.");
+                }
+                if (!confirmOverwrite) {
+                    return Map.of("needsConfirmation", true, "message", "Active effect will be overwritten.");
+                }
+                if (existing.value > newValue && existing.expiresAt.isAfter(Instant.now().plus(Duration.ofHours(extractDurationHours(item.effects))))) {
+                    throw new RuntimeException("Weaker/shorter effect blocked without explicit confirmation.");
+                }
+                existing.value = newValue;
+                existing.expiresAt = Instant.now().plus(Duration.ofHours(extractDurationHours(item.effects)));
+                applyNonTimedEffects(pet, item.effects);
+                petStateRepo.save(pet);
+                consumeItem(inv);
+                return Map.of("ok", true, "message", "Effect overwritten.");
+            }
+        }
+
+        applyEffects(pet, item.effects, item.effectKey);
+        petStateRepo.save(pet);
+        consumeItem(inv);
+        return Map.of("ok", true);
+    }
+
+
+    public Map<String, Object> startHigherLower(String userId) {
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElseThrow();
+        MinigameSession existing = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower").orElse(null);
+        if (existing != null) {
+            return Map.of("currentNumber", existing.currentNumber, "streak", existing.streak, "resumed", true);
+        }
+        PetState pet = simulate(userId);
+        if (pet.energy < game.energyCost) {
+            throw new RuntimeException("Not enough energy");
+        }
+        pet.energy = clamp(pet.energy - game.energyCost);
+        petStateRepo.save(pet);
+
+        MinigameSession session = new MinigameSession();
+        session.userId = userId;
+        session.gameCode = "higher_lower";
+        session.currentNumber = random.nextInt(100) + 1;
+        session.streak = 0;
+        session.active = true;
+        session.startedAt = Instant.now();
+        minigameSessionRepo.save(session);
+        return Map.of("currentNumber", session.currentNumber, "streak", session.streak);
+    }
+
+    public Map<String, Object> guessHigherLower(String userId, String guess) {
+        MinigameSession session = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower")
+                .orElseThrow(() -> new RuntimeException("No active session"));
+        int next = random.nextInt(100) + 1;
+        boolean correct = "HIGHER".equalsIgnoreCase(guess) ? next > session.currentNumber : next < session.currentNumber;
+        int previous = session.currentNumber;
+        session.currentNumber = next;
+        if (correct) {
+            session.streak += 1;
+            minigameSessionRepo.save(session);
+            return Map.of("correct", true, "previous", previous, "next", next, "streak", session.streak, "gameOver", false);
+        }
+        return finishSession(userId, session, previous, next);
+    }
+
+    public Map<String, Object> quitHigherLower(String userId) {
+        Optional<MinigameSession> sessionOpt = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower");
+        if (sessionOpt.isEmpty()) {
+            return Map.of("ok", true, "coinsReward", 0, "happinessDeltaPercent", 0, "noActiveSession", true);
+        }
+        MinigameSession session = sessionOpt.get();
+        return finishSession(userId, session, session.currentNumber, session.currentNumber);
+    }
+
+    public List<MinigameConfig> minigames() {
+        return minigameRepo.findByActiveTrue();
+    }
+
+    public Map<String, Object> startSimpleMinigame(String userId, String gameCode) {
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        if ("higher_lower".equals(gameCode)) {
+            throw new RuntimeException("Use higher/lower dedicated endpoint");
+        }
+        PetState pet = simulate(userId);
+        if (pet.energy < game.energyCost) {
+            throw new RuntimeException("Not enough energy");
+        }
+        pet.energy = clamp(pet.energy - game.energyCost);
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "energyCost", game.energyCost);
+    }
+
+    public Map<String, Object> finishSimpleMinigame(String userId, String gameCode, int score, String connectDifficulty, Integer connectHumanMoves) {
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        PetState pet = simulate(userId);
+        double mult = coinMultiplierForPet(pet, Instant.now());
+        int baseReward = calculateSimpleRewardBase(game, score);
+        int reward = applyCoinMultiplierToBase(baseReward, mult);
+        int happinessDeltaPercent = happinessDeltaForSimpleMinigame(gameCode, score, connectDifficulty, connectHumanMoves);
+
+        Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
+        wallet.coins += reward;
+        walletRepo.save(wallet);
+
+        pet.happiness = clamp(pet.happiness + (pet.happiness * happinessDeltaPercent / 100.0));
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "coinsReward", reward, "happinessDeltaPercent", happinessDeltaPercent, "coinsBaseBeforeMultiplier", baseReward,
+                "coinMultiplierApplied", round2(mult));
+    }
+
+    /**
+     * Leave a simple minigame mid-run: refund half the entry energy cost (integer: {@code cost - cost/2}),
+     * no coins and no happiness change. Higher/Lower must use {@link #quitHigherLower}.
+     */
+    public Map<String, Object> abandonSimpleMinigame(String userId, String gameCode) {
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        if ("higher_lower".equals(gameCode)) {
+            throw new RuntimeException("Use higher-lower quit endpoint");
+        }
+        PetState pet = simulate(userId);
+        int cost = game.energyCost;
+        int refund = cost - cost / 2;
+        pet.energy = clamp(pet.energy + refund);
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "energyRefund", refund, "energyCost", cost);
+    }
+
+    /**
+     * Connect 4: win uses raised base + tier×moves×3 (capped at 100%). Loss on easy uses global score thresholds;
+     * loss on medium/hard uses effort-based delta (base -5%, +3/+6% per human move vs easy), clamped.
+     */
+    private int happinessDeltaForSimpleMinigame(String gameCode, int score, String connectDifficulty, Integer connectHumanMoves) {
+        if ("connect4_ai".equals(gameCode) && score == 2) {
+            int moves = connectHumanMoves == null ? 0 : Math.max(0, connectHumanMoves);
+            return GameMath.connect4WinHappinessDeltaPercent(connectDifficulty, moves);
+        }
+        if (!"connect4_ai".equals(gameCode) || score != 0) {
+            return GameMath.happinessDeltaForScore(Math.max(0, score));
+        }
+        String d = connectDifficulty == null ? "easy" : connectDifficulty.trim().toLowerCase(Locale.ROOT);
+        if ("easy".equals(d)) {
+            return GameMath.happinessDeltaForScore(0);
+        }
+        int moves = connectHumanMoves == null ? 0 : Math.max(0, connectHumanMoves);
+        int weight = "hard".equals(d) ? 2 : 1;
+        int delta = -5 + weight * moves * 3;
+        return Math.max(-10, Math.min(62, delta));
+    }
+
+    private Map<String, Object> finishSession(String userId, MinigameSession session, int previous, int next) {
+        MinigameConfig hlGame = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElseThrow();
+        int fibMax = maxRewardCap(hlGame);
+        int streak = session.streak;
+        int baseReward = GameMath.shiftedFibonacciReward(streak, fibMax);
+
+        PetState pet = simulate(userId);
+        double mult = coinMultiplierForPet(pet, Instant.now());
+        int reward = applyCoinMultiplierToBase(baseReward, mult);
+
+        int happinessDeltaPercent = GameMath.happinessDeltaForScore(streak);
+        Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
+        wallet.coins += reward;
+        walletRepo.save(wallet);
+
+        pet.happiness = clamp(pet.happiness + (pet.happiness * happinessDeltaPercent / 100.0));
+        petStateRepo.save(pet);
+        session.active = false;
+        minigameSessionRepo.save(session);
+        return Map.of("correct", false, "previous", previous, "next", next, "streak", streak, "gameOver", true,
+                "coinsReward", reward, "happinessDeltaPercent", happinessDeltaPercent,
+                "coinsBaseBeforeMultiplier", baseReward, "coinMultiplierApplied", round2(mult));
+    }
+
+    private double coinMultiplierForPet(PetState pet, Instant now) {
+        double m = 1.0;
+        for (PetState.ActiveEffect e : pet.activeEffects) {
+            if (e.expiresAt.isBefore(now)) {
+                continue;
+            }
+            if ("COIN_MULT".equals(e.bonusKind)) {
+                if (e.value > 0) {
+                    m *= e.value;
+                }
+            }
+        }
+        return m;
+    }
+
+    private int applyCoinMultiplierToBase(int baseCoins, double mult) {
+        if (mult <= 0) {
+            mult = 1.0;
+        }
+        return (int) Math.round(Math.max(0, baseCoins) * mult);
+    }
+
+    private double round2(double v) {
+        return Math.round(v * 100.0) / 100.0;
+    }
+
+    private int maxRewardCap(MinigameConfig game) {
+        if (game == null || game.rewardStrategy == null) {
+            return 72;
+        }
+        return ((Number) game.rewardStrategy.getOrDefault("maxReward", 72)).intValue();
+    }
+
+    /**
+     * Base coins from DB rules only (coin consumable multiplier applied by callers).
+     */
+    @SuppressWarnings("unchecked")
+    private int calculateSimpleRewardBase(MinigameConfig game, int score) {
+        if (game.rewardStrategy == null) {
+            return Math.max(0, score);
+        }
+        String type = String.valueOf(game.rewardStrategy.getOrDefault("type", "SCORE_LINEAR"));
+        if ("SHIFTED_FIBONACCI".equals(type)) {
+            return GameMath.shiftedFibonacciReward(Math.max(0, score), maxRewardCap(game));
+        }
+        if ("CONNECT4_OUTCOME".equals(type)) {
+            return calculateConnect4BaseReward(game, score);
+        }
+        int coinsPerPoint = ((Number) game.rewardStrategy.getOrDefault("coinsPerPoint", 2)).intValue();
+        int maxReward = ((Number) game.rewardStrategy.getOrDefault("maxReward", 120)).intValue();
+        return Math.min(maxReward, Math.max(0, score) * coinsPerPoint);
+    }
+
+    @SuppressWarnings("unchecked")
+    private int calculateConnect4BaseReward(MinigameConfig game, int outcomeScore) {
+        Map<String, Object> rewards = (Map<String, Object>) game.rewardStrategy.getOrDefault("rewards", Map.of());
+        if (outcomeScore >= 2) {
+            return ((Number) rewards.getOrDefault("win", 8)).intValue();
+        }
+        if (outcomeScore == 1) {
+            return ((Number) rewards.getOrDefault("draw", 3)).intValue();
+        }
+        return ((Number) rewards.getOrDefault("loss", 1)).intValue();
+    }
+
+    private void consumeItem(InventoryItem inv) {
+        inv.quantity -= 1;
+        if (inv.quantity <= 0) {
+            inventoryRepo.delete(inv);
+            return;
+        }
+        inventoryRepo.save(inv);
+    }
+
+    private void applyEffects(PetState pet, List<Map<String, Object>> effects, String effectKey) {
+        applyNonTimedEffects(pet, effects);
+        if (effectKey == null) {
+            return;
+        }
+        Instant start = Instant.now();
+        double energyBonus = extractEnergyMultiplier(effects);
+        if (energyBonus > 0) {
+            int hours = extractDurationHours(effects);
+            PetState.ActiveEffect ae = new PetState.ActiveEffect();
+            ae.effectKey = effectKey;
+            ae.bonusKind = "ENERGY_REGEN";
+            ae.value = energyBonus;
+            ae.expiresAt = start.plus(Duration.ofHours(hours));
+            pet.activeEffects.add(ae);
+        }
+        double coinMult = extractCoinMultiplierFactor(effects);
+        if (coinMult > 1.0) {
+            int coinHours = extractDurationHoursCoin(effects);
+            PetState.ActiveEffect ce = new PetState.ActiveEffect();
+            ce.effectKey = effectKey;
+            ce.bonusKind = "COIN_MULT";
+            ce.value = coinMult;
+            ce.expiresAt = start.plus(Duration.ofHours(Math.max(1, coinHours)));
+            pet.activeEffects.add(ce);
+        }
+    }
+
+    private void applyNonTimedEffects(PetState pet, List<Map<String, Object>> effects) {
+        for (Map<String, Object> effect : effects) {
+            String kind = String.valueOf(effect.get("kind"));
+            double value = effect.get("value") == null ? 0.0 : ((Number) effect.get("value")).doubleValue();
+            switch (kind) {
+                case "HUNGER_ADD" -> pet.hunger = clamp(pet.hunger + value);
+                case "ENERGY_PERCENT_ADD" -> pet.energy = clamp(pet.energy + value * 100.0);
+                case "SET_HUNGER_PERCENT" -> pet.hunger = clamp(value * 100.0);
+                case "SET_HAPPINESS_PERCENT" -> pet.happiness = clamp(value * 100.0);
+                case "HAPPINESS_ADD" -> pet.happiness = clamp(pet.happiness + value);
+                case "SET_ENERGY_PERCENT" -> pet.energy = clamp(value * 100.0);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private double extractEnergyMultiplier(List<Map<String, Object>> effects) {
+        for (Map<String, Object> effect : effects) {
+            if ("ENERGY_REGEN_MULTIPLIER".equals(effect.get("kind"))) {
+                return ((Number) effect.get("value")).doubleValue();
+            }
+        }
+        return 0;
+    }
+
+    /** Multiplicative factor for coins (e.g. 1.2 = +20%). */
+    private double extractCoinMultiplierFactor(List<Map<String, Object>> effects) {
+        for (Map<String, Object> effect : effects) {
+            if ("COIN_MULTIPLIER".equals(String.valueOf(effect.get("kind")))) {
+                double v = ((Number) effect.get("value")).doubleValue();
+                return v > 0 ? v : 1.0;
+            }
+        }
+        return 1.0;
+    }
+
+    private int extractDurationHours(List<Map<String, Object>> effects) {
+        for (Map<String, Object> effect : effects) {
+            if ("ENERGY_REGEN_MULTIPLIER".equals(effect.get("kind")) && effect.get("durationHours") != null) {
+                return ((Number) effect.get("durationHours")).intValue();
+            }
+        }
+        for (Map<String, Object> effect : effects) {
+            if (effect.get("durationHours") != null) {
+                return ((Number) effect.get("durationHours")).intValue();
+            }
+        }
+        return 1;
+    }
+
+    private int extractDurationHoursCoin(List<Map<String, Object>> effects) {
+        for (Map<String, Object> effect : effects) {
+            if ("COIN_MULTIPLIER".equals(String.valueOf(effect.get("kind"))) && effect.get("durationHours") != null) {
+                return ((Number) effect.get("durationHours")).intValue();
+            }
+        }
+        return extractDurationHours(effects);
+    }
+
+    private String extractGrantVisualAssetCode(ShopItem item) {
+        if (item.effects == null) {
+            return null;
+        }
+        for (Map<String, Object> effect : item.effects) {
+            if ("GRANT_VISUAL".equals(String.valueOf(effect.get("kind")))) {
+                Object c = effect.get("visualAssetCode");
+                if (c != null) {
+                    return String.valueOf(c).trim();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Migrate legacy mood key and ensure new lists exist; persists when changed. */
+    private void migratePetVisualFields(PetState pet) {
+        boolean changed = false;
+        if (pet.moodAssetCodes != null && pet.moodAssetCodes.containsKey("dead")) {
+            String v = pet.moodAssetCodes.remove("dead");
+            if (v != null) {
+                pet.moodAssetCodes.put("playing_dead", v);
+            }
+            changed = true;
+        }
+        if (pet.ownedVisualAssetCodes == null) {
+            pet.ownedVisualAssetCodes = new ArrayList<>();
+            changed = true;
+        }
+        if (changed) {
+            petStateRepo.save(pet);
+        }
+    }
+
+    private PetState simulate(String userId) {
+        PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+        migratePetVisualFields(pet);
+        Instant now = Instant.now();
+        double hours = Duration.between(pet.lastSimulationAt, now).toMinutes() / 60.0;
+        if (hours <= 0) {
+            return pet;
+        }
+
+        pet.activeEffects = new ArrayList<>(pet.activeEffects.stream().filter(e -> e.expiresAt.isAfter(now)).toList());
+        double regenMultiplier = pet.activeEffects.stream()
+                .filter(e -> !"COIN_MULT".equals(e.bonusKind))
+                .mapToDouble(e -> e.value)
+                .sum();
+        double hungerK = 0.029;
+        double happinessK = 0.06;
+
+        pet.hunger = clamp(pet.hunger * Math.exp(-hungerK * hours));
+        pet.happiness = clamp(pet.happiness * Math.exp(-happinessK * hours));
+        if (pet.hunger < 30) {
+            pet.happiness = clamp(pet.happiness - hours * 1.2);
+        }
+        double energyRegenPerHour = 8.0 * (1.0 + regenMultiplier);
+        if (pet.hunger < 30) {
+            energyRegenPerHour *= 0.8;
+        }
+        pet.energy = clamp(pet.energy + hours * energyRegenPerHour);
+        pet.lastSimulationAt = now;
+        return pet;
+    }
+
+    private void initializeUserGameData(String userId) {
+        PetState pet = new PetState();
+        pet.userId = userId;
+        pet.hunger = 100;
+        pet.happiness = 100;
+        pet.energy = 100;
+        pet.speciesCode = "dog";
+        pet.moodAssetCodes = new HashMap<>();
+        pet.ownedVisualAssetCodes = new ArrayList<>();
+        pet.equippedBackgroundAssetCode = null;
+        pet.equippedForegroundAssetCode = null;
+        pet.lastSimulationAt = Instant.now();
+        petStateRepo.save(pet);
+
+        Wallet wallet = new Wallet();
+        wallet.userId = userId;
+        wallet.coins = 300;
+        walletRepo.save(wallet);
+    }
+
+    private Map<String, Object> issueAuthTokens(String userId, String email) {
+        UserToken access = makeToken(userId, "ACCESS", Duration.ofHours(accessTokenHours));
+        UserToken refresh = makeToken(userId, "REFRESH", Duration.ofDays(refreshTokenDays));
+        Map<String, Object> res = new HashMap<>();
+        res.put("accessToken", access.token);
+        res.put("refreshToken", refresh.token);
+        res.put("email", email);
+        return res;
+    }
+
+    private UserToken makeToken(String userId, String type, Duration ttl) {
+        UserToken token = new UserToken();
+        token.userId = userId;
+        token.type = type;
+        token.token = UUID.randomUUID().toString() + "-" + UUID.randomUUID();
+        token.createdAt = Instant.now();
+        token.expiresAt = token.createdAt.plus(ttl);
+        token.used = false;
+        return userTokenRepo.save(token);
+    }
+
+    private void sendVerificationMail(UserAccount user) {
+        UserToken token = makeToken(user.id, "VERIFY_EMAIL", Duration.ofHours(24));
+        sendMail(user.email, "Verify your Poe Pet account",
+                "Verify here: " + apiBaseUrl + "/auth/verify-email?token=" + token.token + "\n\n"
+                        + "Frontend route: " + webBaseUrl + "/verify-email?token=" + token.token);
+    }
+
+    private void sendMail(String to, String subject, String body) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(body);
+            message.setFrom("no-reply@poepet.local");
+            mailSender.send(message);
+        } catch (Exception ex) {
+            // Dev fallback for local environment when SMTP is unavailable.
+            System.out.println("MAIL_FALLBACK to=" + to + " subject=" + subject + " body=" + body);
+        }
+    }
+
+    private boolean passwordValid(String password) {
+        if (password == null || password.length() < 5) {
+            return false;
+        }
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        boolean hasUpper = password.chars().anyMatch(Character::isUpperCase);
+        return hasDigit || hasUpper;
+    }
+
+    private double clamp(double value) {
+        return Math.max(0, Math.min(100, value));
+    }
+
+}

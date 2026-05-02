@@ -1,0 +1,104 @@
+[
+  {
+    "code": "food_small_50",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Meal Pack +50",
+    "description": "Feeds pet for 50 hunger points.",
+    "priceCoins": 10,
+    "effects": [
+      { "kind": "HUNGER_ADD", "value": 50 }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": null
+  },
+  {
+    "code": "food_boost_20_regen_10pct_10h",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Boost Snack +20",
+    "description": "Feeds +20 hunger and boosts energy regeneration by 10% for 10 hours.",
+    "priceCoins": 10,
+    "effects": [
+      { "kind": "HUNGER_ADD", "value": 20 },
+      { "kind": "ENERGY_REGEN_MULTIPLIER", "value": 0.1, "durationHours": 10, "effectName": "fast_regen" }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": "fast_regen"
+  },
+  {
+    "code": "food_combo_10_energy_25pct",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Quick Bite +10",
+    "description": "Feeds +10 hunger and restores 25% energy instantly.",
+    "priceCoins": 10,
+    "effects": [
+      { "kind": "HUNGER_ADD", "value": 10 },
+      { "kind": "ENERGY_PERCENT_ADD", "value": 0.25 }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": null
+  },
+  {
+    "code": "food_cozy_bites",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Cozy Bites",
+    "description": "Small treat: +12 hunger and +15 happiness.",
+    "priceCoins": 12,
+    "effects": [
+      { "kind": "HUNGER_ADD", "value": 12 },
+      { "kind": "HAPPINESS_ADD", "value": 15 }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": null
+  },
+  {
+    "code": "snack_coin_boost",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Lucky Syrup (+20% coins)",
+    "description": "Feeds +5 hunger and multiplies coin rewards from minigames by 1.2 for 4 hours (does not stack same key differently—see SOURCE_OF_TRUTH).",
+    "priceCoins": 15,
+    "effects": [
+      { "kind": "HUNGER_ADD", "value": 5 },
+      { "kind": "COIN_MULTIPLIER", "value": 1.2, "durationHours": 4 }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": "gold_rush"
+  },
+  {
+    "code": "resurrection_basic",
+    "type": "CONSUMABLE",
+    "shopSection": "CONSUMABLES",
+    "name": "Revive Snack",
+    "description": "Sets hunger, happiness and energy to 10%.",
+    "priceCoins": 200,
+    "effects": [
+      { "kind": "SET_HUNGER_PERCENT", "value": 0.1 },
+      { "kind": "SET_HAPPINESS_PERCENT", "value": 0.1 },
+      { "kind": "SET_ENERGY_PERCENT", "value": 0.1 }
+    ],
+    "stackable": true,
+    "oneTimePurchase": false,
+    "active": true,
+    "playerVisible": true,
+    "effectKey": null
+  }
+]

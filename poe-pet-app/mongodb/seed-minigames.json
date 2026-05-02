@@ -1,0 +1,76 @@
+[
+  {
+    "code": "higher_lower",
+    "name": "Higher or Lower",
+    "description": "Guess if the next random number from 1 to 100 will be higher or lower.",
+    "energyCost": 3,
+    "active": true,
+    "rewardStrategy": {
+      "type": "SHIFTED_FIBONACCI",
+      "sequenceStart": [1, 2],
+      "maxReward": 48,
+      "futureExtensions": ["GLOBAL_MULTIPLIER", "EVENT_MULTIPLIER"]
+    },
+    "happinessImpactStrategy": {
+      "type": "SCORE_THRESHOLDS",
+      "thresholds": [
+        { "minScore": 0, "maxScore": 0, "happinessDeltaPercent": -0.1 },
+        { "minScore": 1, "maxScore": 1, "happinessDeltaPercent": 0.0 },
+        { "minScore": 2, "maxScore": 999, "happinessDeltaPercentPerPoint": 0.125, "maxPositivePercent": 0.625 }
+      ]
+    }
+  },
+  {
+    "code": "puzzle_swap",
+    "name": "Puzzle Swap",
+    "description": "Rebuild shuffled image by swapping two tiles.",
+    "energyCost": 4,
+    "active": true,
+    "rewardStrategy": {
+      "type": "SCORE_LINEAR",
+      "coinsPerPoint": 2,
+      "maxReward": 96
+    },
+    "happinessImpactStrategy": {
+      "type": "SCORE_THRESHOLDS"
+    }
+  },
+  {
+    "code": "connect4_ai",
+    "name": "Connect 4 AI",
+    "description": "Play Connect 4 against AI with multiple difficulty levels.",
+    "energyCost": 5,
+    "active": true,
+    "rewardStrategy": {
+      "type": "CONNECT4_OUTCOME",
+      "rewards": { "win": 9, "draw": 4, "loss": 1 }
+    },
+    "happinessImpactStrategy": {
+      "type": "SCORE_THRESHOLDS"
+    }
+  },
+  {
+    "code": "minesweep_ai",
+    "name": "Minesweeper",
+    "description": "Clear the field without hitting a mine. Mines are placed after your first reveal (classic safe first click).",
+    "energyCost": 4,
+    "active": true,
+    "rewardStrategy": {
+      "type": "CONNECT4_OUTCOME",
+      "rewards": { "win": 10, "draw": 0, "loss": 1 }
+    },
+    "happinessImpactStrategy": { "type": "SCORE_THRESHOLDS" }
+  },
+  {
+    "code": "checkers_ai",
+    "name": "Checkers vs AI",
+    "description": "American checkers on an 8×8 board. Capture when available. Beat the AI on easy, medium, or hard.",
+    "energyCost": 5,
+    "active": true,
+    "rewardStrategy": {
+      "type": "CONNECT4_OUTCOME",
+      "rewards": { "win": 8, "draw": 3, "loss": 1 }
+    },
+    "happinessImpactStrategy": { "type": "SCORE_THRESHOLDS" }
+  }
+]

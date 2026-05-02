@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" role="img" aria-label="Cartoon underwater">
+  <defs>
+    <linearGradient id="w" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#40c0f8"/><stop offset="0.5" stop-color="#2080d8"/><stop offset="1" stop-color="#104878"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" fill="url(#w)"/>
+  <ellipse cx="200" cy="160" rx="140" ry="70" fill="#fff" opacity="0.2"/>
+  <ellipse cx="650" cy="220" rx="180" ry="85" fill="#fff" opacity="0.15"/>
+  <ellipse cx="480" cy="120" rx="100" ry="50" fill="#fff" opacity="0.18"/>
+  <path d="M100 200 Q180 180 260 200" stroke="#fff" stroke-width="8" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M520 280 Q600 260 680 280" stroke="#fff" stroke-width="10" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M300 400 Q380 360 460 400 Q540 440 620 400" stroke="#88e8ff" stroke-width="14" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <ellipse cx="450" cy="520" rx="200" ry="120" fill="#30a868" opacity="0.45"/>
+  <ellipse cx="200" cy="600" rx="160" ry="90" fill="#289058" opacity="0.5"/>
+  <ellipse cx="720" cy="580" rx="150" ry="85" fill="#248050" opacity="0.48"/>
+  <circle cx="220" cy="480" r="35" fill="#ff9868" opacity="0.7"/>
+  <circle cx="680" cy="520" r="28" fill="#ffd868" opacity="0.65"/>
+  <circle cx="480" cy="440" r="22" fill="#ff88c8" opacity="0.6"/>
+</svg>

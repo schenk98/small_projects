@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="App icon cute paw">
+  <defs>
+    <radialGradient id="p" cx="35%" cy="30%" r="70%">
+      <stop stop-color="#ffd8f0"/><stop offset="0.5" stop-color="#c8a8f0"/><stop offset="1" stop-color="#7860c0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="36" r="18" fill="url(#p)" stroke="#504878" stroke-width="2"/>
+  <ellipse cx="22" cy="18" rx="8" ry="11" fill="url(#p)" stroke="#504878" stroke-width="1.5"/>
+  <ellipse cx="32" cy="14" rx="7" ry="10" fill="url(#p)" stroke="#504878" stroke-width="1.5"/>
+  <ellipse cx="42" cy="18" rx="8" ry="11" fill="url(#p)" stroke="#504878" stroke-width="1.5"/>
+  <ellipse cx="18" cy="28" rx="7" ry="9" fill="url(#p)" stroke="#504878" stroke-width="1.5"/>
+  <ellipse cx="46" cy="28" rx="7" ry="9" fill="url(#p)" stroke="#504878" stroke-width="1.5"/>
+</svg>

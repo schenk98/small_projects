@@ -1,0 +1,181 @@
+.page { max-width: 980px; margin: 0 auto; padding: 12px; height: 100vh; overflow: auto; }
+.card { background: #fff; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.card input { display: block; width: 100%; margin: 8px 0; padding: 8px; border-radius: 8px; border: 1px solid #ccd; }
+.card select { display: block; width: 100%; margin: 8px 0; padding: 8px; border-radius: 8px; border: 1px solid #ccd; background: #fff; }
+.card button { margin: 6px 6px 6px 0; padding: 8px 10px; border-radius: 8px; border: 0; background: #2f6df7; color: #fff; cursor: pointer; }
+.card button:disabled { background: #999; cursor: not-allowed; }
+.topbar { display: flex; gap: 12px; flex-wrap: wrap; background: #fff; padding: 10px; border-radius: 10px; }
+.stat { min-width: 160px; }
+.bar { width: 160px; height: 10px; background: #dfe5f3; border-radius: 8px; overflow: hidden; }
+.fill { height: 100%; }
+.bar-hunger { background: #f39c12; }
+.bar-happiness { background: #2ecc71; }
+.bar-energy { background: #3498db; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.nav a { text-decoration: none; padding: 8px 12px; border-radius: 8px; background: #dde4f4; color: #222; }
+.nav a.active { background: #2f6df7; color: #fff; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid #eee; padding: 8px 0; }
+.shop-row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; flex-shrink: 0; }
+.info { background: #1f3f7a; color: #fff; padding: 8px 10px; border-radius: 8px; }
+.pane { max-height: 45vh; overflow: auto; }
+.subnav { display: flex; gap: 8px; margin-bottom: 8px; }
+.tab { background: #d9e2ff !important; color: #1b2a59 !important; }
+.tab.active { background: #2f6df7 !important; color: #fff !important; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 99; }
+.modal { width: min(900px, 90vw); min-height: 60vh; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+.danger { background: #bb2d2d !important; }
+.inv-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+.inv-item summary { cursor: pointer; font-weight: 600; }
+.puzzle-grid { display: grid; gap: 1px; max-width: 700px; margin: 0 auto; }
+.tile { aspect-ratio: 1; border: 1px solid #aaa; background-repeat: no-repeat; border-radius: 4px; }
+/* Global .card button margin would otherwise space puzzle tiles apart; snapshot uses div.tile only. */
+.modal-minigame button.tile { margin: 0 !important; padding: 0; }
+.tile.selected { outline: 3px solid #2f6df7; }
+.connect-grid { display: grid; grid-template-columns: repeat(7, 44px); gap: 6px; width: fit-content; margin: 10px auto; background: #1140a8; padding: 8px; border-radius: 8px; }
+.connect-grid.readonly { pointer-events: none; opacity: 0.95; }
+.snapshot-block { margin: 14px 0; padding-top: 10px; border-top: 1px solid #dde4f3; }
+.snapshot-block h4 { margin: 0 0 8px; font-size: 0.95rem; }
+.puzzle-snapshot .tile { cursor: default; }
+.c4 { width: 44px; height: 44px; border-radius: 50% !important; background: #fff !important; border: 0; margin: 0 !important; }
+.c4.p1 { background: #ffd53a !important; }
+.c4.p2 { background: #f14545 !important; }
+.modal-minigame { position: relative; min-height: unset; max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; gap: 10px; width: min(920px, 96vw); }
+/* Single scroll region: result sheet, large puzzle snapshot, and Close stay reachable on small viewports. */
+.modal-minigame-scroll-all {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 6px;
+}
+.modal-minigame-scroll { flex: 1; min-height: 0; overflow-y: auto; max-height: min(70vh, 640px); padding-right: 4px; }
+.puzzle-modal-block,
+.mines-modal-block,
+.checkers-modal-block {
+  min-width: 0;
+}
+.puzzle-play-wrap {
+  width: 100%;
+  max-width: min(92vw, 85vmin, 520px);
+  max-height: min(62vh, 520px);
+  margin: 0 auto;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.puzzle-grid-modal { gap: 2px; max-width: none; width: 100%; }
+/* End-game snapshot: cap size so modal + scroll-all can expose actions without overflow hacks. */
+.puzzle-snapshot-wrap {
+  max-width: min(92vw, 85vmin, 480px);
+  max-height: min(48vh, 420px);
+  margin: 0 auto;
+  overflow: auto;
+  border: 1px solid #aab6cc;
+  border-radius: 8px;
+  padding: 4px;
+  box-sizing: border-box;
+  background: #eef2f8;
+}
+.puzzle-snapshot.puzzle-grid {
+  max-width: none;
+  margin: 0;
+}
+.mine-grid {
+  display: grid;
+  gap: 1px;
+  border: 2px solid #4a5568;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px auto;
+  overflow-x: auto;
+  background: #4a5568;
+  box-sizing: border-box;
+}
+.mine-cell {
+  box-sizing: border-box;
+  width: var(--mine-cell, 22px);
+  height: var(--mine-cell, 22px);
+  min-width: var(--mine-cell, 22px);
+  min-height: var(--mine-cell, 22px);
+  font: 700 clamp(11px, 2.1vmin, 14px) / 1 Consolas, 'Courier New', monospace;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px #8a96a8;
+  background: #c8c8c8;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 !important;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.mine-cell.revealed-open { background: #d8d8d8; box-shadow: inset 0 0 0 1px #6b7488; }
+.mine-cell.revealed-closed { background: #c4c4c4; box-shadow: inset 0 0 0 1px #5c6575, inset 2px 2px 0 #f0f0f0, inset -2px -2px 0 #909090; }
+.mine-cell.mine-num-1 { color: #0000ff; }
+.mine-cell.mine-num-2 { color: #008200; }
+.mine-cell.mine-num-3 { color: #ff0000; }
+.mine-cell.mine-num-4 { color: #000084; }
+.mine-cell.mine-num-5 { color: #840000; }
+.mine-cell.mine-num-6 { color: #008284; }
+.mine-cell.mine-num-7 { color: #000000; }
+.mine-cell.mine-num-8 { color: #808080; }
+.mine-cell.mine-boom { color: #000; background: #e74c3c; box-shadow: inset 0 0 0 1px #922b21; }
+.mine-cell.mine-dormant { font-size: clamp(10px, 2vmin, 13px); line-height: 1; background: #d0d0d0; }
+.dev-hint { font-size: 0.82rem; margin-left: auto; align-self: center; }
+.checkers-board { display: flex; flex-direction: column; gap: 0; width: min(92vw, 360px); margin: 8px auto; border: 2px solid #333; border-radius: 4px; overflow: hidden; }
+.checkers-row { display: flex; }
+.checkers-cell { flex: 1; aspect-ratio: 1; min-width: 0; min-height: 0; border: 0; padding: 0; margin: 0 !important; font-size: clamp(14px, 4.5vmin, 22px); line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.checkers-cell.light { background: #e6d5b8; cursor: default; }
+.checkers-cell.dark { background: #6b4423; color: #fff; }
+.checkers-cell.dark:disabled { opacity: 0.85; cursor: default; }
+.checkers-cell.picked { outline: 3px solid #2f6df7; outline-offset: -2px; }
+.minigame-result-sheet { background: #f8fafc; border: 1px solid #c5d0e3; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.result-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.muted { color: #555; font-size: 0.92rem; }
+.dev-dropdown { margin-left: 4px; font-size: 0.9rem; }
+.dev-dropdown summary { cursor: pointer; font-weight: 600; color: #1b2a59; }
+.dev-dropdown-body { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; max-width: 260px; }
+.dev-dropdown-body button { margin: 0 !important; }
+.dev-stats-panel { min-height: auto; width: min(420px, 92vw); }
+.dev-stat-label { display: block; margin: 8px 0; font-weight: 600; }
+.dev-stat-label input { display: block; width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box; }
+.pet-stage { text-align: center; }
+.pet-stage-layers {
+  position: relative;
+  width: min(420px, 88vw);
+  min-height: min(52vh, 420px);
+  margin: 10px auto 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(165deg, #e8eef8 0%, #f4f6fb 45%, #dce6f8 100%);
+  background-size: cover;
+  background-position: center;
+}
+.pet-stage-layers .pet-stage-image {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 14px auto;
+  width: auto;
+  max-width: 94%;
+}
+.pet-stage-fg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 2;
+}
+.pet-stage-image {
+  width: min(380px, 72vw);
+  height: auto;
+  max-height: min(72vh, 520px);
+  object-fit: contain;
+  display: block;
+  margin: 10px auto 0;
+  filter: drop-shadow(0 12px 24px rgba(30, 45, 80, 0.18)) drop-shadow(0 4px 8px rgba(30, 45, 80, 0.08));
+}

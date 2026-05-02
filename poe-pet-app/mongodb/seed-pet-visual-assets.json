@@ -1,0 +1,18 @@
+[
+  { "code": "dog_happy_default", "assetType": "PET_MOOD", "speciesCode": "dog", "moodCode": "happy", "label": "Dog Happy (Default)", "imagePath": "/pet-assets/dog/happy-default.png", "starter": true, "active": true },
+  { "code": "dog_sad_default", "assetType": "PET_MOOD", "speciesCode": "dog", "moodCode": "sad", "label": "Dog Sad (Default)", "imagePath": "/pet-assets/dog/sad-default.png", "starter": true, "active": true },
+  { "code": "dog_hungry_default", "assetType": "PET_MOOD", "speciesCode": "dog", "moodCode": "hungry", "label": "Dog Hungry (Default)", "imagePath": "/pet-assets/dog/hungry-default.png", "starter": true, "active": true },
+  { "code": "dog_tired_default", "assetType": "PET_MOOD", "speciesCode": "dog", "moodCode": "tired", "label": "Dog Tired (Default)", "imagePath": "/pet-assets/dog/tired-default.png", "starter": true, "active": true },
+  { "code": "dog_playing_dead_default", "assetType": "PET_MOOD", "speciesCode": "dog", "moodCode": "playing_dead", "label": "Dog Playing Dead (Default)", "imagePath": "/pet-assets/dog/playing-dead-default.png", "starter": true, "active": true },
+  { "code": "cat_happy_default", "assetType": "PET_MOOD", "speciesCode": "cat", "moodCode": "happy", "label": "Cat Happy (Default)", "imagePath": "/pet-assets/cat/happy-default.png", "starter": true, "active": true },
+  { "code": "cat_sad_default", "assetType": "PET_MOOD", "speciesCode": "cat", "moodCode": "sad", "label": "Cat Sad (Default)", "imagePath": "/pet-assets/cat/sad-default.png", "starter": true, "active": true },
+  { "code": "cat_hungry_default", "assetType": "PET_MOOD", "speciesCode": "cat", "moodCode": "hungry", "label": "Cat Hungry (Default)", "imagePath": "/pet-assets/cat/hungry-default.png", "starter": true, "active": true },
+  { "code": "cat_tired_default", "assetType": "PET_MOOD", "speciesCode": "cat", "moodCode": "tired", "label": "Cat Tired (Default)", "imagePath": "/pet-assets/cat/tired-default.png", "starter": true, "active": true },
+  { "code": "cat_playing_dead_default", "assetType": "PET_MOOD", "speciesCode": "cat", "moodCode": "playing_dead", "label": "Cat Playing Dead (Default)", "imagePath": "/pet-assets/cat/playing-dead-default.png", "starter": true, "active": true },
+  { "code": "bg_aurora_default", "assetType": "BACKGROUND", "speciesCode": "all", "moodCode": "", "label": "Aurora Hills", "imagePath": "/cosmetic-staging/backgrounds/theme-aurora.svg", "starter": false, "active": true },
+  { "code": "bg_candy_default", "assetType": "BACKGROUND", "speciesCode": "all", "moodCode": "", "label": "Candy Dream", "imagePath": "/cosmetic-staging/backgrounds/theme-candy.svg", "starter": false, "active": true },
+  { "code": "bg_dusk_default", "assetType": "BACKGROUND", "speciesCode": "all", "moodCode": "", "label": "Dusk Glow", "imagePath": "/cosmetic-staging/backgrounds/theme-dusk.svg", "starter": false, "active": true },
+  { "code": "bg_underwater_default", "assetType": "BACKGROUND", "speciesCode": "all", "moodCode": "", "label": "Underwater", "imagePath": "/cosmetic-staging/backgrounds/theme-underwater.svg", "starter": false, "active": true },
+  { "code": "fg_soft_vignette_default", "assetType": "FOREGROUND", "speciesCode": "all", "moodCode": "", "label": "Soft vignette (free)", "imagePath": "/cosmetic-staging/foregrounds/soft-vignette.svg", "starter": true, "active": true },
+  { "code": "fg_sparkle_default", "assetType": "FOREGROUND", "speciesCode": "all", "moodCode": "", "label": "Sparkle frame", "imagePath": "/cosmetic-staging/foregrounds/sparkle-frame.svg", "starter": false, "active": true }
+]
