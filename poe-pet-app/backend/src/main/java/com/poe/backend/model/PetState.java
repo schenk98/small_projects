@@ -13,9 +13,13 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class PetState {
     @Id
     public String id;
+    /** Owning user id (same id as {@link com.poe.backend.model.UserAccount#id}). */
     public String userId;
+    /** Hunger percent 0..100. At <=0, the pet is considered "playing dead". */
     public double hunger;
+    /** Happiness percent 0..100. */
     public double happiness;
+    /** Energy percent 0..100. Minigames consume energy; time regenerates it. */
     public double energy;
     /** Selected base pet species (starter choices: dog/cat). */
     public String speciesCode;
@@ -28,12 +32,15 @@ public class PetState {
     /** Equipped foreground overlay asset code, or null. */
     public String equippedForegroundAssetCode;
     public Instant lastSimulationAt;
+    /** Timed and untimed effects applied by consumables (energy regen multipliers, coin multipliers, etc.). */
     public List<ActiveEffect> activeEffects = new ArrayList<>();
 
     public static class ActiveEffect {
+        /** Groups effects from the same item so they can be overwritten/reset. */
         public String effectKey;
         /** Regen additive (energy) uses ENERGY_REGEN; coin payouts use COIN_MULT. Null treated as ENERGY_REGEN for older records. */
         public String bonusKind;
+        /** Effect strength: multiplier factor or additive magnitude depending on kind. */
         public double value;
         public Instant expiresAt;
     }

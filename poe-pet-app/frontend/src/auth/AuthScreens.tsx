@@ -53,11 +53,11 @@ export function AuthRegister({ setMessage }: { setMessage: (m: string) => void }
 
 export function VerifyEmail({ setMessage }: { setMessage: (m: string) => void }) {
   const params = new URLSearchParams(window.location.search)
-  const [status, setStatus] = useState<'pending' | 'ok' | 'error'>('pending')
+  const token = params.get('token')
+  // Avoid setting state synchronously inside the effect body (eslint rule).
+  const [status, setStatus] = useState<'pending' | 'ok' | 'error'>(token ? 'pending' : 'error')
   useEffect(() => {
-    const token = params.get('token')
     if (!token) {
-      setStatus('error')
       setMessage('Missing verification token.')
       return
     }
@@ -74,7 +74,7 @@ export function VerifyEmail({ setMessage }: { setMessage: (m: string) => void })
       setStatus('error')
       setMessage('Verification request failed.')
     })
-  }, [])
+  }, [token, setMessage])
   return (
     <div className="card">
       <h2>Email verification</h2>

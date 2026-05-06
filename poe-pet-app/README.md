@@ -46,6 +46,14 @@ The scripts assume you run them from the **`poe-pet-app`** directory (they `cd` 
 
 Backend reads `APP_PRIVILEGED_EMAILS` (comma-separated list, matches login email after normalization). Set it when starting Spring Boot or in [`backend/src/main/resources/application.yml`](backend/src/main/resources/application.yml) as `app.privilegedEmails`. Alternatively set `privileged: true` on a user document in MongoDB (`users` collection).
 
+### CORS (browser access policy)
+
+Backend CORS uses an explicit allowlist (safe-by-default).
+
+- Dev default: `http://localhost:5173`
+- Override with `APP_CORS_ALLOWED_ORIGINS` (comma-separated), e.g.:
+  - `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend.example`
+
 Re-seed or update `minigames` / `shop_items` in Atlas if you need the lowered energy costs and new consumables in an existing DB.
 
 What `start-all` does:

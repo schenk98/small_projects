@@ -17,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.poe.backend.controller.ApiException;
 import com.poe.backend.model.InventoryItem;
 import com.poe.backend.model.MinigameConfig;
 import com.poe.backend.model.MinigameSession;
@@ -26,6 +27,7 @@ import com.poe.backend.model.ShopItem;
 import com.poe.backend.model.UserAccount;
 import com.poe.backend.model.UserToken;
 import com.poe.backend.model.Wallet;
+import org.springframework.http.HttpStatus;
 import com.poe.backend.repo.InventoryRepo;
 import com.poe.backend.repo.MinigameRepo;
 import com.poe.backend.repo.MinigameSessionRepo;
@@ -38,6 +40,16 @@ import com.poe.backend.repo.WalletRepo;
 
 @Service
 public class AppService {
+    private static final int DEFAULT_SHIFTED_FIBONACCI_CAP = 72;
+    private static final int[] DEFAULT_PUZZLE_PREVIEW_SCORES = new int[] { 8, 18, 36, 72 };
+    /**
+     * Central service containing most game logic.
+     *
+     * Historical note:
+     * This class started as a single "app service" for a small project. As features grew (auth, shop,
+     * inventory, visuals, multiple minigames), it became a large aggregation point. For readability,
+     * the long-term direction is to split this into focused services (AuthService, ShopService, etc.).
+     */
     private final UserAccountRepo userAccountRepo;
     private final UserTokenRepo userTokenRepo;
     private final PetStateRepo petStateRepo;
@@ -79,6 +91,10 @@ public class AppService {
         this.mailSender = mailSender;
     }
 
+    /**
+     * Create a new account and initialize baseline game state.
+     * Also sends a verification email; user cannot log in until verified.
+     */
     public Map<String, Object> register(String email, String password) {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         if (!passwordValid(password)) {
@@ -100,6 +116,7 @@ public class AppService {
         return Map.of("message", "Account created. Verify your email.");
     }
 
+    /** Mark the user's email as verified, consuming the token. */
     public Map<String, Object> verifyEmail(String tokenValue) {
         UserToken token = userTokenRepo.findByTokenAndTypeAndUsedFalseAndExpiresAtAfter(tokenValue, "VERIFY_EMAIL", Instant.now())
                 .orElseThrow(() -> new RuntimeException("Invalid verification token."));
@@ -111,6 +128,7 @@ public class AppService {
         return Map.of("message", "Email verified.");
     }
 
+    /** Login: checks password + email verified, then issues access+refresh tokens. */
     public Map<String, Object> login(String email, String password) {
         UserAccount user = userAccountRepo.findByEmail(email.trim().toLowerCase(Locale.ROOT))
                 .orElseThrow(() -> new RuntimeException("Invalid credentials."));
@@ -123,12 +141,18 @@ public class AppService {
         return issueAuthTokens(user.id, user.email);
     }
 
+    /** Rotate tokens using a valid refresh token. */
     public Map<String, Object> refresh(String refreshToken) {
         UserToken token = userTokenRepo.findByTokenAndTypeAndUsedFalseAndExpiresAtAfter(refreshToken, "REFRESH", Instant.now())
                 .orElseThrow(() -> new RuntimeException("Invalid refresh token."));
         return issueAuthTokens(token.userId, userAccountRepo.findById(token.userId).orElseThrow().email);
     }
 
+    /**
+     * Request a password reset email.
+     *
+     * Security: always returns a generic success message to avoid account enumeration.
+     */
     public Map<String, Object> forgotPassword(String email) {
         Optional<UserAccount> userOpt = userAccountRepo.findByEmail(email.trim().toLowerCase(Locale.ROOT));
         if (userOpt.isEmpty()) {
@@ -141,6 +165,11 @@ public class AppService {
         return Map.of("message", "If account exists, reset mail has been sent.");
     }
 
+    /**
+     * Complete a password reset using a RESET_PASSWORD token.
+     *
+     * This consumes the token (marks used=true) and updates the user's password hash.
+     */
     public Map<String, Object> resetPassword(String tokenValue, String newPassword) {
         if (!passwordValid(newPassword)) {
             throw new RuntimeException("Password policy failed.");
@@ -155,17 +184,32 @@ public class AppService {
         return Map.of("message", "Password reset done.");
     }
 
+    /**
+     * Return a minimal "who am I" payload for authenticated clients.
+     *
+     * Note: this returns account fields only (not pet/wallet).
+     */
     public Map<String, Object> me(String userId) {
         UserAccount user = userAccountRepo.findById(userId).orElseThrow();
         return Map.of("id", user.id, "email", user.email, "emailVerified", user.emailVerified);
     }
 
+    /**
+     * Fetch the pet state and apply time-based simulation before returning.
+     *
+     * Side effect: the simulated pet is persisted so the DB reflects the latest state.
+     */
     public PetState getPet(String userId) {
         PetState pet = simulate(userId);
         petStateRepo.save(pet);
         return pet;
     }
 
+    /**
+     * Build the main dashboard response consumed by the frontend app shell.
+     *
+     * Includes pet, wallet, developer flag, and reward preview.
+     */
     public Map<String, Object> getDashboard(String userId) {
         PetState pet = getPet(userId);
         Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
@@ -183,6 +227,11 @@ public class AppService {
         return u.privileged || privilegedEmailMatches(u.email);
     }
 
+    /**
+     * Match the given email against a comma-separated allowlist from config.
+     *
+     * This allows enabling dev tools without editing DB flags.
+     */
     private boolean privilegedEmailMatches(String email) {
         if (email == null || privilegedEmailsCsv == null || privilegedEmailsCsv.isBlank()) {
             return false;
@@ -197,9 +246,14 @@ public class AppService {
         return false;
     }
 
+    /**
+     * Developer sandbox: grant coins to the current user.
+     *
+     * Security: privileged users only.
+     */
     public Map<String, Object> devGrantCoins(String userId, int amount) {
         if (!isPrivileged(userId)) {
-            throw new RuntimeException("Forbidden");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Forbidden");
         }
         Wallet w = walletRepo.findByUserId(userId).orElseThrow();
         w.coins += Math.max(0, amount);
@@ -207,9 +261,14 @@ public class AppService {
         return Map.of("ok", true, "coins", w.coins);
     }
 
+    /**
+     * Developer sandbox: set pet stats to 100% for quick UI testing.
+     *
+     * Security: privileged users only.
+     */
     public Map<String, Object> devRefillStats(String userId) {
         if (!isPrivileged(userId)) {
-            throw new RuntimeException("Forbidden");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Forbidden");
         }
         PetState pet = simulate(userId);
         pet.hunger = 100;
@@ -219,9 +278,14 @@ public class AppService {
         return Map.of("ok", true, "pet", pet);
     }
 
+    /**
+     * Developer sandbox: set pet stats as fractions (0..1).
+     *
+     * Security: privileged users only.
+     */
     public Map<String, Object> devSetStats(String userId, double hungerPct, double happinessPct, double energyPct) {
         if (!isPrivileged(userId)) {
-            throw new RuntimeException("Forbidden");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Forbidden");
         }
         PetState pet = simulate(userId);
         pet.hunger = clamp(hungerPct * 100.0);
@@ -240,14 +304,14 @@ public class AppService {
         MinigameSession hl = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower").orElse(null);
         MinigameConfig hlGame = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElse(null);
         int streak = hl != null ? hl.streak : 0;
-        int hlMax = hlGame != null ? maxRewardCap(hlGame) : 72;
+        int hlMax = hlGame != null ? maxRewardCap(hlGame) : DEFAULT_SHIFTED_FIBONACCI_CAP;
         int hlBase = GameMath.shiftedFibonacciReward(streak, hlMax);
         int hlPayout = applyCoinMultiplierToBase(hlBase, mult);
 
         MinigameConfig pz = minigameRepo.findByCodeAndActiveTrue("puzzle_swap").orElse(null);
         Map<String, Integer> puzzleAtScore = new HashMap<>();
         if (pz != null) {
-            for (int s : new int[] { 8, 18, 36, 72 }) {
+            for (int s : previewScoresOrDefault(pz, DEFAULT_PUZZLE_PREVIEW_SCORES)) {
                 int raw = calculateSimpleRewardBase(pz, s);
                 puzzleAtScore.put("score_" + s, applyCoinMultiplierToBase(raw, mult));
             }
@@ -295,6 +359,11 @@ public class AppService {
         return out;
     }
 
+    /**
+     * List active shop items visible to players.
+     *
+     * This is the "shop catalog" endpoint consumed by the frontend.
+     */
     public List<ShopItem> shopItems() {
         return shopItemRepo.findByActiveTrue().stream()
                 .filter(AppService::isPlayerVisibleInShop)
@@ -306,8 +375,16 @@ public class AppService {
         return item.playerVisible == null || Boolean.TRUE.equals(item.playerVisible);
     }
 
+    /**
+     * Purchase an item from the shop.
+     *
+     * Supported types:
+     * - CONSUMABLE: increases inventory quantity
+     * - COSMETIC: grants a visual asset code into {@code PetState.ownedVisualAssetCodes}
+     */
     public Map<String, Object> purchase(String userId, String itemCode) {
-        ShopItem item = shopItemRepo.findByCodeAndActiveTrue(itemCode).orElseThrow(() -> new RuntimeException("Item not found"));
+        ShopItem item = shopItemRepo.findByCodeAndActiveTrue(itemCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Item not found"));
         if (!isPlayerVisibleInShop(item)) {
             throw new RuntimeException("Item not available");
         }
@@ -353,10 +430,20 @@ public class AppService {
         throw new RuntimeException("Unsupported shop item type: " + item.type);
     }
 
+    /**
+     * Return all inventory rows for the user.
+     *
+     * Each row is (itemCode, quantity). Quantity 0 rows are deleted (see {@link #consumeItem}).
+     */
     public List<InventoryItem> inventory(String userId) {
         return inventoryRepo.findByUserId(userId);
     }
 
+    /**
+     * Return the global visual catalog (all active assets).
+     *
+     * Ownership is enforced on equip/apply routes; the catalog itself is not user-specific.
+     */
     public List<PetVisualAsset> petVisualCatalog() {
         return petVisualAssetRepo.findByActiveTrue().stream()
                 .sorted((a, b) -> {
@@ -369,6 +456,11 @@ public class AppService {
                 .toList();
     }
 
+    /**
+     * Set the base pet species (currently dog/cat).
+     *
+     * Species controls which mood assets can be equipped.
+     */
     public Map<String, Object> setSpecies(String userId, String speciesCode) {
         String normalized = speciesCode == null ? "" : speciesCode.trim().toLowerCase(Locale.ROOT);
         if (!"dog".equals(normalized) && !"cat".equals(normalized)) {
@@ -380,6 +472,11 @@ public class AppService {
         return Map.of("ok", true, "speciesCode", normalized);
     }
 
+    /**
+     * Set mood slot overrides (mood -> assetCode).
+     *
+     * Uses "none"/blank to clear an override and fall back to starter defaults.
+     */
     public Map<String, Object> setMoodAssets(String userId, Map<String, String> moodAssetCodes) {
         if (moodAssetCodes == null) {
             throw new RuntimeException("moodAssetCodes is required");
@@ -413,6 +510,11 @@ public class AppService {
         return Map.of("ok", true, "moodAssetCodes", next);
     }
 
+    /**
+     * Equip background + foreground visual layers.
+     *
+     * Passing "none" or blank clears a layer.
+     */
     public Map<String, Object> equipVisualLayers(String userId, String backgroundAssetCode, String foregroundAssetCode) {
         PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
         migratePetVisualFields(pet);
@@ -449,6 +551,13 @@ public class AppService {
                 "equippedForegroundAssetCode", pet.equippedForegroundAssetCode == null ? "" : pet.equippedForegroundAssetCode);
     }
 
+    /**
+     * Use a consumable item from inventory and apply its effects.
+     *
+     * This endpoint supports a two-step "confirm overwrite" flow for timed effects:
+     * - first call returns { needsConfirmation: true } if an active effect would be overwritten
+     * - second call repeats with confirmOverwrite=true to overwrite intentionally
+     */
     public Map<String, Object> useConsumable(String userId, String itemCode, boolean confirmOverwrite) {
         InventoryItem inv = inventoryRepo.findByUserIdAndItemCode(userId, itemCode)
                 .orElseThrow(() -> new RuntimeException("Item not owned"));
@@ -497,6 +606,12 @@ public class AppService {
     }
 
 
+    /**
+     * Start (or resume) a Higher/Lower session.
+     *
+     * Higher/Lower is session-based: state is persisted in {@code minigame_sessions} so it can resume.
+     * Starting a new session charges energy once; resuming does not.
+     */
     public Map<String, Object> startHigherLower(String userId) {
         MinigameConfig game = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElseThrow();
         MinigameSession existing = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower").orElse(null);
@@ -521,9 +636,15 @@ public class AppService {
         return Map.of("currentNumber", session.currentNumber, "streak", session.streak);
     }
 
+    /**
+     * Submit a Higher/Lower guess (HIGHER or LOWER).
+     *
+     * If correct, the streak continues and the session stays active.
+     * If incorrect, the session is finished and payout/happiness changes are applied.
+     */
     public Map<String, Object> guessHigherLower(String userId, String guess) {
         MinigameSession session = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower")
-                .orElseThrow(() -> new RuntimeException("No active session"));
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "No active session"));
         int next = random.nextInt(100) + 1;
         boolean correct = "HIGHER".equalsIgnoreCase(guess) ? next > session.currentNumber : next < session.currentNumber;
         int previous = session.currentNumber;
@@ -536,6 +657,11 @@ public class AppService {
         return finishSession(userId, session, previous, next);
     }
 
+    /**
+     * Quit Higher/Lower and claim coins for the current streak.
+     *
+     * This differs from simple minigames where abandon provides an energy refund.
+     */
     public Map<String, Object> quitHigherLower(String userId) {
         Optional<MinigameSession> sessionOpt = minigameSessionRepo.findByUserIdAndGameCodeAndActiveTrue(userId, "higher_lower");
         if (sessionOpt.isEmpty()) {
@@ -545,12 +671,23 @@ public class AppService {
         return finishSession(userId, session, session.currentNumber, session.currentNumber);
     }
 
+    /**
+     * List all active minigame configurations from the DB catalog.
+     *
+     * The frontend uses this list to render the minigames hub and show descriptions/energy costs.
+     */
     public List<MinigameConfig> minigames() {
         return minigameRepo.findByActiveTrue();
     }
 
+    /**
+     * Start a "simple" (non-session) minigame by charging its entry energy cost.
+     *
+     * The gameplay itself happens client-side; the backend only records start/finish/abandon effects.
+     */
     public Map<String, Object> startSimpleMinigame(String userId, String gameCode) {
-        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Minigame not found"));
         if ("higher_lower".equals(gameCode)) {
             throw new RuntimeException("Use higher/lower dedicated endpoint");
         }
@@ -563,8 +700,16 @@ public class AppService {
         return Map.of("ok", true, "energyCost", game.energyCost);
     }
 
+    /**
+     * Finish a simple minigame.
+     *
+     * Applies:
+     * - coins reward into wallet (with active coin multipliers)
+     * - happiness delta into pet
+     */
     public Map<String, Object> finishSimpleMinigame(String userId, String gameCode, int score, String connectDifficulty, Integer connectHumanMoves) {
-        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Minigame not found"));
         PetState pet = simulate(userId);
         double mult = coinMultiplierForPet(pet, Instant.now());
         int baseReward = calculateSimpleRewardBase(game, score);
@@ -586,7 +731,8 @@ public class AppService {
      * no coins and no happiness change. Higher/Lower must use {@link #quitHigherLower}.
      */
     public Map<String, Object> abandonSimpleMinigame(String userId, String gameCode) {
-        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode).orElseThrow(() -> new RuntimeException("Minigame not found"));
+        MinigameConfig game = minigameRepo.findByCodeAndActiveTrue(gameCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Minigame not found"));
         if ("higher_lower".equals(gameCode)) {
             throw new RuntimeException("Use higher-lower quit endpoint");
         }
@@ -620,6 +766,11 @@ public class AppService {
         return Math.max(-10, Math.min(62, delta));
     }
 
+    /**
+     * Shared Higher/Lower finishing logic (used both on quit and on loss).
+     *
+     * Computes base reward, applies coin multipliers, updates wallet and pet happiness, then deactivates the session.
+     */
     private Map<String, Object> finishSession(String userId, MinigameSession session, int previous, int next) {
         MinigameConfig hlGame = minigameRepo.findByCodeAndActiveTrue("higher_lower").orElseThrow();
         int fibMax = maxRewardCap(hlGame);
@@ -644,6 +795,11 @@ public class AppService {
                 "coinsBaseBeforeMultiplier", baseReward, "coinMultiplierApplied", round2(mult));
     }
 
+    /**
+     * Compute the active coin multiplier from timed effects.
+     *
+     * Multiple multipliers stack multiplicatively.
+     */
     private double coinMultiplierForPet(PetState pet, Instant now) {
         double m = 1.0;
         for (PetState.ActiveEffect e : pet.activeEffects) {
@@ -659,6 +815,11 @@ public class AppService {
         return m;
     }
 
+    /**
+     * Multiply base coins by the multiplier and return integer coins.
+     *
+     * Uses rounding; guards against negative base and invalid multipliers.
+     */
     private int applyCoinMultiplierToBase(int baseCoins, double mult) {
         if (mult <= 0) {
             mult = 1.0;
@@ -666,15 +827,58 @@ public class AppService {
         return (int) Math.round(Math.max(0, baseCoins) * mult);
     }
 
+    /** Utility: round to 2 decimal places for client-facing debug/payout fields. */
     private double round2(double v) {
         return Math.round(v * 100.0) / 100.0;
     }
 
+    /**
+     * Read the maximum cap for shifted-fibonacci style rewards from the minigame's rewardStrategy.
+     *
+     * This prevents unbounded rewards for long sessions.
+     */
     private int maxRewardCap(MinigameConfig game) {
         if (game == null || game.rewardStrategy == null) {
-            return 72;
+            return DEFAULT_SHIFTED_FIBONACCI_CAP;
         }
-        return ((Number) game.rewardStrategy.getOrDefault("maxReward", 72)).intValue();
+        return ((Number) game.rewardStrategy.getOrDefault("maxReward", DEFAULT_SHIFTED_FIBONACCI_CAP)).intValue();
+    }
+
+    /**
+     * Reward preview uses a handful of sample scores so the UI can show "if you score ~X you'll earn ~Y coins".
+     *
+     * We support reading those samples from the DB (rewardStrategy.previewScores), but keep a small default list
+     * for older rows.
+     */
+    @SuppressWarnings("unchecked")
+    private int[] previewScoresOrDefault(MinigameConfig game, int[] fallback) {
+        if (game == null || game.rewardStrategy == null) {
+            return fallback;
+        }
+        Object raw = game.rewardStrategy.get("previewScores");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return fallback;
+        }
+        List<Integer> parsed = new ArrayList<>();
+        for (Object o : list) {
+            if (o instanceof Number n) {
+                parsed.add(n.intValue());
+            } else if (o != null) {
+                try {
+                    parsed.add(Integer.parseInt(String.valueOf(o)));
+                } catch (NumberFormatException ignored) {
+                    // ignore invalid values
+                }
+            }
+        }
+        if (parsed.isEmpty()) {
+            return fallback;
+        }
+        int[] out = new int[parsed.size()];
+        for (int i = 0; i < parsed.size(); i++) {
+            out[i] = parsed.get(i);
+        }
+        return out;
     }
 
     /**
@@ -697,6 +901,11 @@ public class AppService {
         return Math.min(maxReward, Math.max(0, score) * coinsPerPoint);
     }
 
+    /**
+     * Compute base reward coins for outcome-based minigames (win/draw/loss).
+     *
+     * outcomeScore: 2=win, 1=draw, 0=loss.
+     */
     @SuppressWarnings("unchecked")
     private int calculateConnect4BaseReward(MinigameConfig game, int outcomeScore) {
         Map<String, Object> rewards = (Map<String, Object>) game.rewardStrategy.getOrDefault("rewards", Map.of());
@@ -709,6 +918,11 @@ public class AppService {
         return ((Number) rewards.getOrDefault("loss", 1)).intValue();
     }
 
+    /**
+     * Consume one unit of an inventory item.
+     *
+     * Deletes the inventory record when quantity reaches 0.
+     */
     private void consumeItem(InventoryItem inv) {
         inv.quantity -= 1;
         if (inv.quantity <= 0) {
@@ -718,6 +932,12 @@ public class AppService {
         inventoryRepo.save(inv);
     }
 
+    /**
+     * Apply all item effects to a pet.
+     *
+     * - non-timed effects apply immediately to stats
+     * - timed effects become {@link PetState.ActiveEffect} rows with an expiry
+     */
     private void applyEffects(PetState pet, List<Map<String, Object>> effects, String effectKey) {
         applyNonTimedEffects(pet, effects);
         if (effectKey == null) {
@@ -746,6 +966,9 @@ public class AppService {
         }
     }
 
+    /**
+     * Apply "instant" effects that directly modify pet stats (hunger/happiness/energy).
+     */
     private void applyNonTimedEffects(PetState pet, List<Map<String, Object>> effects) {
         for (Map<String, Object> effect : effects) {
             String kind = String.valueOf(effect.get("kind"));
@@ -763,6 +986,11 @@ public class AppService {
         }
     }
 
+    /**
+     * Extract the ENERGY_REGEN_MULTIPLIER value from an effect list.
+     *
+     * Returns 0 when no multiplier effect exists.
+     */
     private double extractEnergyMultiplier(List<Map<String, Object>> effects) {
         for (Map<String, Object> effect : effects) {
             if ("ENERGY_REGEN_MULTIPLIER".equals(effect.get("kind"))) {
@@ -783,6 +1011,14 @@ public class AppService {
         return 1.0;
     }
 
+    /**
+     * Determine a duration (hours) for timed effects.
+     *
+     * Preference:
+     * - durationHours on the ENERGY_REGEN_MULTIPLIER effect
+     * - any durationHours field in the effect list
+     * - default 1 hour
+     */
     private int extractDurationHours(List<Map<String, Object>> effects) {
         for (Map<String, Object> effect : effects) {
             if ("ENERGY_REGEN_MULTIPLIER".equals(effect.get("kind")) && effect.get("durationHours") != null) {
@@ -797,6 +1033,9 @@ public class AppService {
         return 1;
     }
 
+    /**
+     * Determine duration for coin multipliers (COIN_MULTIPLIER), falling back to {@link #extractDurationHours}.
+     */
     private int extractDurationHoursCoin(List<Map<String, Object>> effects) {
         for (Map<String, Object> effect : effects) {
             if ("COIN_MULTIPLIER".equals(String.valueOf(effect.get("kind"))) && effect.get("durationHours") != null) {
@@ -806,6 +1045,11 @@ public class AppService {
         return extractDurationHours(effects);
     }
 
+    /**
+     * Read cosmetic shop effect payload and return granted visual asset code, if present.
+     *
+     * Cosmetic items should contain: { kind: "GRANT_VISUAL", visualAssetCode: "<code>" }.
+     */
     private String extractGrantVisualAssetCode(ShopItem item) {
         if (item.effects == null) {
             return null;
@@ -840,12 +1084,27 @@ public class AppService {
         }
     }
 
+    /**
+     * Simulate time progression for the pet between {@code lastSimulationAt} and now.
+     *
+     * Called on-demand when the user hits the API (dashboard, minigame start/finish, inventory use, etc.).
+     * This avoids simulating offline users in the background.
+     */
     private PetState simulate(String userId) {
         PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
         migratePetVisualFields(pet);
         Instant now = Instant.now();
         double hours = Duration.between(pet.lastSimulationAt, now).toMinutes() / 60.0;
         if (hours <= 0) {
+            return pet;
+        }
+
+        // "Dead" pets (hunger <= 0) are treated as frozen: we still clean up effects but we do not keep
+        // evolving the simulation on every request. From the user's POV, this state is stable until
+        // they consume food (which is blocked at hunger==0 in the UI loop anyway).
+        if (pet.hunger <= 0) {
+            pet.activeEffects = new ArrayList<>(pet.activeEffects.stream().filter(e -> e.expiresAt.isAfter(now)).toList());
+            pet.lastSimulationAt = now;
             return pet;
         }
 
@@ -871,6 +1130,13 @@ public class AppService {
         return pet;
     }
 
+    /**
+     * Create baseline pet + wallet documents for a newly registered user.
+     *
+     * This seeds:
+     * - pet stats and defaults
+     * - initial wallet coin balance
+     */
     private void initializeUserGameData(String userId) {
         PetState pet = new PetState();
         pet.userId = userId;
@@ -891,6 +1157,11 @@ public class AppService {
         walletRepo.save(wallet);
     }
 
+    /**
+     * Issue access + refresh tokens and return them in a JSON-friendly map.
+     *
+     * Tokens are stored server-side and validated by {@code AuthInterceptor}.
+     */
     private Map<String, Object> issueAuthTokens(String userId, String email) {
         UserToken access = makeToken(userId, "ACCESS", Duration.ofHours(accessTokenHours));
         UserToken refresh = makeToken(userId, "REFRESH", Duration.ofDays(refreshTokenDays));
@@ -901,6 +1172,11 @@ public class AppService {
         return res;
     }
 
+    /**
+     * Create a token row with the given TTL.
+     *
+     * Token strings are random UUID pairs; the DB record holds expiry and used flag.
+     */
     private UserToken makeToken(String userId, String type, Duration ttl) {
         UserToken token = new UserToken();
         token.userId = userId;
@@ -912,6 +1188,13 @@ public class AppService {
         return userTokenRepo.save(token);
     }
 
+    /**
+     * Send a verification email after registration.
+     *
+     * Includes both:
+     * - backend verification link (direct API call)
+     * - frontend route link (nice UX)
+     */
     private void sendVerificationMail(UserAccount user) {
         UserToken token = makeToken(user.id, "VERIFY_EMAIL", Duration.ofHours(24));
         sendMail(user.email, "Verify your Poe Pet account",
@@ -919,6 +1202,11 @@ public class AppService {
                         + "Frontend route: " + webBaseUrl + "/verify-email?token=" + token.token);
     }
 
+    /**
+     * Send a mail message using configured SMTP.
+     *
+     * In local dev, failures are logged to stdout as a fallback.
+     */
     private void sendMail(String to, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -933,6 +1221,11 @@ public class AppService {
         }
     }
 
+    /**
+     * Simple password policy used by register/reset endpoints.
+     *
+     * Rule: length >= 5 and contains at least one digit OR at least one uppercase letter.
+     */
     private boolean passwordValid(String password) {
         if (password == null || password.length() < 5) {
             return false;
@@ -942,6 +1235,7 @@ public class AppService {
         return hasDigit || hasUpper;
     }
 
+    /** Clamp a percent-like stat value into the inclusive range [0..100]. */
     private double clamp(double value) {
         return Math.max(0, Math.min(100, value));
     }

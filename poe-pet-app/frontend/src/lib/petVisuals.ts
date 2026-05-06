@@ -2,7 +2,7 @@
  * Pet mood derivation, catalog types, and display labels.
  * Server uses the same mood strings in `pets.moodAssetCodes` and `pet_visual_assets.moodCode`.
  */
-import type { Dashboard } from './rewardPreview'
+import type { Dashboard } from './dashboard'
 
 export type SpeciesCode = 'dog' | 'cat'
 

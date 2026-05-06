@@ -19,6 +19,9 @@ spring:
 app:
   webBaseUrl: ${WEB_BASE_URL:http://localhost:5173}
   apiBaseUrl: ${API_BASE_URL:http://localhost:8080}
+  # Comma-separated origins allowed for browser CORS requests.
+  # Keep this tight (dev default is Vite). Example: APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://your-domain.com
+  corsAllowedOrigins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   accessTokenHours: 4
   refreshTokenDays: 14
   # Comma-separated emails that may use /api/dev tools and in-app developer dropdown (in addition to UserAccount.privileged).

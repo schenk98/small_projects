@@ -24,17 +24,20 @@ public class DevController {
     }
 
     @PostMapping("/grant-coins")
+    /** Grant coins to the current user (privileged only). */
     public ResponseEntity<?> grantCoins(@RequestBody(required = false) Map<String, Integer> body) {
         int amt = body == null || body.get("amount") == null ? 1000 : Math.max(0, body.get("amount"));
         return ResponseEntity.ok(appService.devGrantCoins(CurrentUser.get(), amt));
     }
 
     @PostMapping("/refill-stats")
+    /** Set pet stats to 100/100/100 for quick testing (privileged only). */
     public ResponseEntity<?> refill() {
         return ResponseEntity.ok(appService.devRefillStats(CurrentUser.get()));
     }
 
     @PostMapping("/set-stats")
+    /** Set pet stats as fractions (0..1) for quick testing (privileged only). */
     public ResponseEntity<?> setStats(@RequestBody Map<String, Double> body) {
         double h = body.getOrDefault("hungerPercent", 1.0);
         double ha = body.getOrDefault("happinessPercent", 1.0);

@@ -8,5 +8,6 @@ public class Wallet {
     @Id
     public String id;
     public String userId;
+    /** Integer coin balance (no fractional coins). */
     public int coins;
 }

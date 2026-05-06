@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { mergeRewardPreview, parseRewardPreviewBlob } from './rewardPreview'
+import { mergeRewardPreview, parseRewardPreviewBlob, type Dashboard } from './dashboard'
 
-describe('rewardPreview', () => {
+describe('dashboard reward preview', () => {
   it('parses camelCase dashboard blob', () => {
     const rp = parseRewardPreviewBlob({
       coinMultiplier: 1.2,
@@ -21,9 +21,9 @@ describe('rewardPreview', () => {
     const d = {
       pet: { hunger: 50, happiness: 50, energy: 50 },
       wallet: { coins: 0 },
-      rewardPreview: { coinMultiplier: 1, higherLower: { streak: 0, coinsIfFinishNow: 0, fibonacciCap: 48, hasActiveSession: false } },
+      rewardPreview: { coinMultiplier: 1, higherLower: { streak: 0, coinsIfFinishNow: 0, fibonacciCap: 48, hasActiveSession: false } } as unknown,
     }
-    const m = mergeRewardPreview(d as any)
+    const m = mergeRewardPreview(d as unknown as Dashboard)
     expect(m?.higherLower.streak).toBe(0)
   })
 })

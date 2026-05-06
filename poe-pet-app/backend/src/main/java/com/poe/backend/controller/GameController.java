@@ -13,6 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
 import com.poe.backend.security.CurrentUser;
 import com.poe.backend.service.AppService;
 
+/**
+ * Main game API consumed by the Vite/React frontend.
+ *
+ * Convention:
+ * - controllers stay thin (HTTP parsing + delegation)
+ * - most business rules live in {@link AppService}
+ */
 @RestController
 @RequestMapping("/api")
 public class GameController {
@@ -27,16 +34,19 @@ public class GameController {
         return ResponseEntity.ok(appService.getDashboard(CurrentUser.get()));
     }
 
+    /** Return all active shop catalog items that are player-visible. */
     @GetMapping("/shop/items")
     public ResponseEntity<?> shopItems() {
         return ResponseEntity.ok(appService.shopItems());
     }
 
+    /** Purchase a shop item by code (coins are charged server-side). */
     @PostMapping("/shop/purchase")
     public ResponseEntity<?> purchase(@RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(appService.purchase(CurrentUser.get(), payload.get("itemCode")));
     }
 
+    /** List inventory entries owned by the current user. */
     @GetMapping("/inventory")
     public ResponseEntity<?> inventory() {
         return ResponseEntity.ok(appService.inventory(CurrentUser.get()));
@@ -49,11 +59,13 @@ public class GameController {
     }
 
     @PostMapping("/pet-visuals/species")
+    /** Set base pet species (dog/cat). */
     public ResponseEntity<?> setSpecies(@RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(appService.setSpecies(CurrentUser.get(), payload.get("speciesCode")));
     }
 
     @PostMapping("/pet-visuals/mood-assets")
+    /** Set per-mood image overrides by asset code (requires ownership or starter). */
     public ResponseEntity<?> setMoodAssets(@RequestBody Map<String, Object> payload) {
         @SuppressWarnings("unchecked")
         Map<String, String> moodAssetCodes = (Map<String, String>) payload.get("moodAssetCodes");
@@ -69,6 +81,7 @@ public class GameController {
     }
 
     @PostMapping("/inventory/use")
+    /** Use a consumable from inventory (supports confirmOverwrite flow). */
     public ResponseEntity<?> use(@RequestBody Map<String, Object> payload) {
         boolean confirm = payload.get("confirmOverwrite") instanceof Boolean b && b;
         return ResponseEntity.ok(appService.useConsumable(CurrentUser.get(), String.valueOf(payload.get("itemCode")), confirm));

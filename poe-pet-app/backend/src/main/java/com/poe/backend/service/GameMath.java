@@ -3,6 +3,15 @@ package com.poe.backend.service;
 import java.util.Locale;
 
 final class GameMath {
+    /**
+     * Pure math helpers for game reward/happiness formulas.
+     *
+     * Intentional:
+     * - no database calls
+     * - no Spring dependencies
+     *
+     * This keeps formulas testable and makes it easier to reason about balancing.
+     */
     private GameMath() {
     }
 
@@ -30,6 +39,12 @@ final class GameMath {
         return Math.min(62, (score - 1) * 13);
     }
 
+    /**
+     * Reward curve used by Higher/Lower.
+     *
+     * It's not Fibonacci starting at 1/1; it's "shifted" (1,2,3,5,8,...) and sums the first {@code streak} terms.
+     * The running total is capped by {@code maxCap} (from DB config).
+     */
     static int shiftedFibonacciReward(int streak, int maxCap) {
         int a = 1;
         int b = 2;

@@ -19,3 +19,14 @@ High-level milestones. Detailed behavior lives in **`SOURCE_OF_TRUTH.md`**.
 - [ ] Additional species (fox, etc.) when `speciesCode` and seeds are extended.
 - [ ] Deployable stack (frontend + API + managed Mongo + real SMTP).
 - [ ] Broader automated tests (see **`documentation/testing/TEST_STRATEGY.md`**) and optional Playwright E2E.
+
+## Next (AI Pet track)
+
+Primary initiative: **AI Pet** (see `documentation/SOURCE_OF_TRUTH.md` section **7.4**).
+
+- [ ] Define pet persona and chat UX placement (tab vs panel).
+- [ ] Research spike: decide which AI model to run (small/offline) + licensing.
+- [ ] Decide inference runtime + hardware (CPU-only vs GPU) and set latency/cost targets.
+- [ ] Build standalone Python AI service (private API; no frontend).
+- [ ] Connect pet app backend → AI service; expose a frontend-friendly chat endpoint.
+- [ ] Add basic contract tests + guardrails (max prompt/response sizes, timeouts, failure fallback).

@@ -11,7 +11,11 @@ public class UserToken {
     public String id;
     public String userId;
     public String token;
-    public String type; // ACCESS, REFRESH, VERIFY_EMAIL, RESET_PASSWORD
+    /**
+     * Token type:
+     * ACCESS, REFRESH, VERIFY_EMAIL, RESET_PASSWORD.
+     */
+    public String type;
     public Instant expiresAt;
     public Instant createdAt;
     public boolean used;
