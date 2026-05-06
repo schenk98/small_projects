@@ -18,17 +18,17 @@
 ## Open items (non-blocking)
 
 - Exact tuning coefficients for hunger / happiness / energy curves.
-  To be tested - good for now
+  - To be tested - good for now
 - Default shop prices and cosmetic prices (currently dev-friendly).
-  To be tested - good for now
+  - To be tested - good for now
 - Puzzle swap: optional user uploads vs only curated / stock / AI URLs (`App.tsx` `startPuzzle`).
-  we should generate images of our main pet on some background for this, but temporary images are ok for now
+  - we should generate images of our main pet on some background for this, but temporary images are ok for now
 - Connect 4 / other AI depths and balancing.
-  this is already working well - no changes needed for now
+  - this is already working well - no changes needed for now
 - Whether minigames stay modal vs dedicated routes.
-  I feel like having them modal is better for future expansion, changes etc.
+  - I feel like having them modal is better for future expansion, changes etc.
 - Cloud region and hosting choice for a future deploy.
-  aws east europe or something like that
+  - aws east europe or something like that
 
 ## Open items (AI Pet track)
 
