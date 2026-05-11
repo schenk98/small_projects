@@ -46,6 +46,11 @@ vite.config.*.timestamp-*
 !.env.example
 !.env*.example
 
+# Project-specific env files that may contain secrets
+local-slm-gateway/gateway.env
+local-slm-gateway/gateway.env.*
+!local-slm-gateway/gateway.env.example
+
 # --- Logs & temp ---
 logs/
 *.log
@@ -82,3 +87,6 @@ Desktop.ini
 
 # --- Optional local tooling ---
 *.local
+
+mestostankov-rebuild.zip
+mestostankov-rebuild/*.tgz

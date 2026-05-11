@@ -142,6 +142,24 @@
 .dev-stat-label { display: block; margin: 8px 0; font-weight: 600; }
 .dev-stat-label input { display: block; width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box; }
 .pet-stage { text-align: center; }
+
+/* Simple "thinking..." animation used by chat header. */
+.thinking-dots {
+  display: inline-block;
+  width: 18px;
+  text-align: left;
+  overflow: hidden;
+  vertical-align: baseline;
+  animation: thinkingDots 1.2s steps(4, end) infinite;
+}
+
+@keyframes thinkingDots {
+  0% { width: 0px; }
+  25% { width: 6px; }
+  50% { width: 12px; }
+  75% { width: 18px; }
+  100% { width: 18px; }
+}
 .pet-stage-layers {
   position: relative;
   width: min(420px, 88vw);

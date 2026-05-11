@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rozcestník</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #5f7486;
+}
+
+/* TOP LIŠTA */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-left { flex: 1; }
+
+.topbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topbar-center a {
+    color: white;
+    text-decoration: none;
+}
+
+.topbar-center a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+.topbar-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.search {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 6px 10px;
+}
+
+.search input {
+    border: none;
+    outline: none;
+}
+
+/* OBSAH */
+.content {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+}
+
+/* OBRÁZKY */
+.box-img,
+.box-img-right {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+}
+
+.box-img { background-image: url("obrazek1.jpg"); }
+.box-img-right { background-image: url("obrazek2.jpg"); }
+
+/* STŘED */
+.box-center {
+    flex: 2;
+    background: white;
+    padding: 15px;
+    box-sizing: border-box;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+/* SLOUPCE */
+.column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.column h3 {
+    margin: 0;
+    color: #5f7486;
+}
+
+/* TLAČÍTKA */
+.column a {
+    width: 100%;
+    text-decoration: none;
+    color: #003366;
+    font-weight: bold;
+    padding: 15px;
+    background: #f5f5f5;
+    border: 1px solid #003366;
+    box-sizing: border-box;
+}
+
+/* ZPĚT */
+.back-btn {
+    width: 100%;
+    margin-top: 0px;
+    padding: 12px;
+    background: #003366;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid #003366;
+}
+
+/* SPODNÍ LIŠTA */
+.services {
+    background: white;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 10px;
+}
+
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 10px;
+    color: #aaa;
+}
+
+/* PATIČKA */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<div class="topbar">
+
+    <div class="topbar-left"></div>
+
+    <div class="topbar-center">
+        <a href="stankovsko.html">Staňkovsko</a>
+            <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+            <a href="kontakty.html">Kontakty</a>
+            <a href="kalendar.html">Kalendář akcí</a>
+            <a href="odpady.html">Odpady</a>
+    </div>
+
+    <div class="topbar-right">
+        <div class="search">
+            <input type="text" placeholder="Hledat...">
+            🔍
+        </div>
+    </div>
+
+</div>
+
+<!-- OBSAH -->
+<div class="content">
+
+    <div class="box-img"></div>
+
+    <div class="box-center">
+
+        <!-- LEVÝ SLOUPEC -->
+        <div class="column">
+            <h3>Rychlý rozcestník</h3>
+
+            <a href="#">Služby pro občany</a>
+            <a href="#">Bydlení a pobyt</a>
+            <a href="#">Poplatky</a>
+            <a href="#">Odpady</a>
+            <a href="#">Formuláře</a>
+            <a href="#">Doklady</a>
+
+            <a class="back-btn" href="index4.html">← Zpět</a>
+        </div>
+
+        <!-- PRAVÝ SLOUPEC (VYROVNÁNÍ) -->
+        <div class="column">
+
+            <h3>&nbsp;</h3>
+
+            <a href="#">Podnikání</a>
+            <a href="#">E-podatelna</a>
+            <a href="#">CzechPOINT</a>
+            <a href="#">CHVAK</a>
+<a href="#">Źivotní situace</a>
+
+        </div>
+
+    </div>
+
+    <div class="box-img-right"></div>
+
+</div>
+
+<!-- SPODNÍ LIŠTA -->
+<div class="services">
+  <a href="mobil.html">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+
+</div>
+
+<!-- PATIČKA -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+services:
+  web:
+    build:
+      context: ./product/frontend
+      dockerfile: Dockerfile
+    environment:
+      # Point frontend to the dataset mounted below.
+      - SCRAPE_DATASET_ROOT=/data/scrape
+      # Internal service-to-service URL inside Docker network.
+      - TTS_GATEWAY_URL=http://tts:8087
+    volumes:
+      # Default: ./data/scrape next to this file.
+      # On EC2 put data under ~/data/scrape and add to .env (same folder as compose):
+      #   SCRAPE_DATA_HOST=/home/ubuntu/data/scrape
+      # so `rm -rf ~/app` when redeploying does not wipe the dataset.
+      - ${SCRAPE_DATA_HOST:-./data/scrape}:/data/scrape:ro
+    ports:
+      - "80:3000"
+    depends_on:
+      - tts
+    restart: unless-stopped
+
+  tts:
+    build:
+      context: ./product/tts-gateway
+      dockerfile: Dockerfile
+    expose:
+      - "8087"
+    restart: unless-stopped
+

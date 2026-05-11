@@ -25,8 +25,22 @@ High-level milestones. Detailed behavior lives in **`SOURCE_OF_TRUTH.md`**.
 Primary initiative: **AI Pet** (see `documentation/SOURCE_OF_TRUTH.md` section **7.4**).
 
 - [ ] Define pet persona and chat UX placement (tab vs panel).
-- [ ] Research spike: decide which AI model to run (small/offline) + licensing.
-- [ ] Decide inference runtime + hardware (CPU-only vs GPU) and set latency/cost targets.
-- [ ] Build standalone Python AI service (private API; no frontend).
+- [ ] Research spike: decide which AI model to run (small/offline) + licensing (**cost-first**).
+- [ ] Decide inference runtime (prefer Ollama) + cheap CPU instance target and set latency/cost targets.
+- [ ] Build standalone **Local SLM Gateway** side project (private API; no frontend) in separate folder/repo (`local-slm-gateway/`).
 - [ ] Connect pet app backend → AI service; expose a frontend-friendly chat endpoint.
 - [ ] Add basic contract tests + guardrails (max prompt/response sizes, timeouts, failure fallback).
+
+## Next (SQL + deployment + SOAP track)
+
+Primary initiative: **history / achievements / deployability / notifications** (see `documentation/SOURCE_OF_TRUTH.md` section **7.5**).
+
+- [ ] Define the first PostgreSQL schema for `activity_event`, achievements, and notification preferences.
+- [ ] Start recording rich activity history from core pet actions, minigame results, and AI chat usage.
+- [ ] Build the first achievement system on top of that history data (permanent achievements first).
+- [ ] Add player-facing UI for achievement progress and activity/journal history.
+- [ ] Add daily challenges after the permanent-achievement foundation is stable.
+- [ ] Containerize the whole main app stack in one Compose-based setup if possible (frontend, backend, MongoDB, SQL DB, dev mail).
+- [ ] Deploy the stack to AWS on a cheap, learnable path: Linux VM / EC2 first.
+- [ ] Add notification settings in the app and a SOAP notification side-service with real email delivery.
+- [ ] Ship the first notification types: low-hunger reminder and daily AI summary, each with its own toggle in settings.

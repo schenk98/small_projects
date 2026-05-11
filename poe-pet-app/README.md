@@ -1,75 +1,227 @@
 # Poe Pet App
 
-Docs-first monorepo for a virtual pet web app.
+`Poe Pet App` is a virtual-pet web application built primarily as an **educational portfolio project**.  
+Its purpose is twofold:
 
-## Start Here
+- to practice real-world backend/frontend architecture, refactoring, testing, and deployment thinking
+- to produce a project that is substantial enough to present as proof of practical development work
 
-Read documents in this order before coding:
+The app combines a classic virtual-pet loop with minigames, customization, economy systems, and an AI-powered pet chat feature backed by a separate local model service.
 
-1. `documentation/SOURCE_OF_TRUTH.md`
-2. `documentation/QUESTIONS.md`
-3. `documentation/ROADMAP.md`
-4. `documentation/UI_LAYOUT.md`
-5. `documentation/testing/TEST_STRATEGY.md`
+## Project Summary
 
-## Folders
+At its current stage, the app includes:
 
-- `frontend/` - React + TypeScript app
-- `backend/` - Java + Spring Boot API
-- `mongodb/` - local DB setup and seeds
-- `documentation/` - architecture, plans, open questions, tests
+- account registration, verification, login, refresh-token auth
+- a simulated pet with `hunger`, `happiness`, and `energy`
+- a shop, inventory, consumables, cosmetics, and pet customization
+- multiple minigames with reward preview logic
+- developer-only tools for fast testing
+- AI chat, where the pet can respond in-character through a separate model gateway
 
-## Working Rule
+This repository follows a **docs-first** approach: behavior, plans, and major architecture decisions are tracked in the documentation before deeper implementation work.
 
-Every implementation must be traceable to the source-of-truth docs.
+## Educational Purpose
 
-## Local Startup
+This project is intentionally broader than a minimal CRUD demo. It is used to explore:
 
-- **Recommended (one command)** — Docker (Mongo + MailHog), frees ports **5173** and **8080**, **`mvn compile`**, then opens **two** terminals (frontend `npm run dev`, backend `mvn spring-boot:run`):
-  - Windows: `powershell -ExecutionPolicy Bypass -File .\start-all.ps1`
-  - Bash (Git Bash/WSL): `bash ./start-all.sh`
+- backend architecture in Java/Spring Boot
+- API design and error handling
+- TypeScript/React UI design
+- data modeling trade-offs
+- refactoring large components/services into clearer structures
+- AI integration with a standalone side project
+- future plans for SQL, containerization, AWS deployment, and SOAP integration
 
-The scripts assume you run them from the **`poe-pet-app`** directory (they `cd` to their own folder if needed).
+In other words, this is not just “a pet app”; it is also a structured learning vehicle.
 
-## Verify local stack
+## Tech Stack
 
-1. **Docker**: `docker compose ps` — `mongodb` and `mailhog` should be `Up`.
-2. **Backend**: open `http://localhost:8080` — connection reset or empty page is normal; the API is under `/api/...` and needs a Bearer token after login.
-3. **Frontend**: open `http://localhost:5173` — log in; top bar should load without “Loading failed”.
-4. **Minigame payouts**: after login, open **Minigames**. You should see **“Payout preview:”** lines under each game. If you only see a gray note about the backend, the JVM process is still an **old build**: stop Java on port **8080**, then from `backend/` run `mvn spring-boot:run` again (or re-run `start-all.ps1`).
-5. **Optional API check** (with a valid access token from the browser devtools → Network → any `/api/dashboard` request):  
-   `GET http://localhost:8080/api/minigames/reward-preview` with header `Authorization: Bearer <token>` should return JSON with `coinMultiplier`, `energyCosts`, `higherLower`, etc.
+### Current stack
 
-**MongoDB note:** energy costs, shop catalog, minigames, and **`pet_visual_assets`** (moods + scene cosmetics) all come from the DB. After a **git pull** that changes seeds, either **reset the volume** so `init/01-seed.js` runs again, or run that script manually — see **`mongodb/README.md`** for step-by-step commands and verification (`pet_visual_assets`, `shop_items`, `minigames`).
+- `Java 21`
+- `Spring Boot 3`
+- `Maven`
+- `MongoDB`
+- `React`
+- `TypeScript`
+- `Vite`
+- `Vitest`
+- `Docker Compose`
+- `REST API`
+- `Git`
 
-### Privileged developer tools
+### Side project / AI stack
 
-Backend reads `APP_PRIVILEGED_EMAILS` (comma-separated list, matches login email after normalization). Set it when starting Spring Boot or in [`backend/src/main/resources/application.yml`](backend/src/main/resources/application.yml) as `app.privilegedEmails`. Alternatively set `privileged: true` on a user document in MongoDB (`users` collection).
+The AI portion is intentionally separated into its own small project:
 
-### CORS (browser access policy)
+- standalone local model gateway
+- `Python`
+- `FastAPI`
+- `Ollama`
+- local CPU-oriented SLM experimentation
 
-Backend CORS uses an explicit allowlist (safe-by-default).
+### Planned future stack expansion
 
-- Dev default: `http://localhost:5173`
-- Override with `APP_CORS_ALLOWED_ORIGINS` (comma-separated), e.g.:
-  - `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend.example`
+The roadmap explicitly includes:
 
-Re-seed or update `minigames` / `shop_items` in Atlas if you need the lowered energy costs and new consumables in an existing DB.
+- `PostgreSQL` for achievements/history/analytics-style data
+- full-stack containerization for deployment readiness
+- Linux / AWS deployment
+- a small SOAP notification side-service
 
-What `start-all` does:
+## What Uses What
 
-- Starts MongoDB + MailHog via Docker Compose (seed on first volume create).
-- Stops processes listening on **5173** and **8080** (dev servers from a previous session).
-- Runs **`mvn -DskipTests compile`** in `backend/` so the API matches current sources.
-- Launches **frontend** and **backend** in separate terminal windows (Windows) or background jobs (Bash).
+### Frontend
 
-## Tests
+`frontend/`
 
-- **All local automated tests** (backend `mvn test`, frontend Vitest, frontend production build):
-  - `powershell -ExecutionPolicy Bypass -File .\run-all-tests.ps1`
-- Backend unit tests only:
-  - `cd backend && mvn test`
-- Frontend unit tests only:
-  - `cd frontend && npm run test`
-- API E2E smoke test (requires running backend + mongo + mailhog):
-  - `powershell -ExecutionPolicy Bypass -File .\tests\e2e\api-smoke.ps1`
+- React + TypeScript UI
+- game shell, settings, minigames, customization, pet chat UI
+- consumes the backend through REST endpoints
+
+### Backend
+
+`backend/`
+
+- Java 21 + Spring Boot 3 API
+- authentication, gameplay logic, minigame orchestration, inventory/shop rules
+- integrates with MongoDB
+- proxies AI chat to the standalone AI gateway
+
+### Data
+
+`mongodb/`
+
+- local MongoDB seed/setup
+- current source of truth for flexible gameplay/catalog state
+
+### Documentation
+
+`documentation/`
+
+- architecture decisions
+- roadmap
+- questions / resolved decisions
+- testing strategy
+- UI/layout direction
+
+## AI Usage and AI Agents
+
+AI is used in **two different ways** in this project:
+
+### 1. As a product feature
+
+The pet can talk in-character through an AI chat system.  
+That chat is powered by a separate side project (`local-slm-gateway`) which runs a local model behind an HTTP API.
+
+### 2. As a development aid
+
+AI agents were used during planning, refactoring, documentation, and implementation support.  
+They were treated as **pair-programming / acceleration tools**, not as an excuse to skip review:
+
+- architecture and roadmap decisions were still discussed and revised
+- documentation was kept as a human-readable source of truth
+- code was tested and iterated on after agent-assisted changes
+
+This is important to state clearly because the project is both:
+- an application with an AI feature
+- a learning project built with the help of AI-assisted development workflows
+
+## Current Architecture
+
+```mermaid
+flowchart LR
+    U[User] --> FE[React Frontend]
+    FE --> BE[Spring Boot Backend]
+    BE --> MG[(MongoDB)]
+    BE --> AI[Local SLM Gateway]
+    AI --> OLL[Ollama / Local Model]
+```
+
+## Planned Architecture Direction
+
+```mermaid
+flowchart LR
+    U[User] --> FE[React Frontend]
+    FE --> BE[Spring Boot Backend]
+    BE --> MG[(MongoDB - live game state)]
+    BE --> PG[(PostgreSQL - history & achievements)]
+    BE --> AI[Local SLM Gateway]
+    AI --> OLL[Ollama / Local Model]
+    BE --> SOAP[SOAP Notification Service]
+    SOAP --> MAIL[Email Delivery]
+```
+
+## Repository Structure
+
+```text
+poe-pet-app/
+├─ backend/         Spring Boot API and game logic
+├─ frontend/        React + TypeScript client
+├─ mongodb/         Mongo setup, seeds, migration scripts
+├─ documentation/   source-of-truth docs, roadmap, questions, tests
+├─ tests/           end-to-end smoke scripts
+├─ README.md        project presentation and overview
+├─ run-all-tests.ps1
+├─ start-all.ps1
+└─ start-all.sh
+```
+
+Related side project kept separately in the same workspace:
+
+```text
+local-slm-gateway/
+├─ gateway/         FastAPI gateway for model requests
+├─ models/          notes/placeholders for local model experiments
+├─ gateway.env      pinned runtime configuration
+├─ docker-compose.yml
+└─ README.md
+```
+
+## Why This Project Is Worth Showing
+
+This app demonstrates more than isolated syntax knowledge. It shows:
+
+- multi-layer application design
+- real backend/frontend communication
+- database-backed gameplay state
+- iterative refactoring and documentation discipline
+- integration with a separate AI service
+- forward planning for SQL analytics, containerization, AWS deployment, and SOAP interoperability
+
+That makes it useful not only as a toy project, but as a **learning narrative**: it shows how a project can grow from a local PoC into a more complete system.
+
+## Future Plans
+
+The next major phases currently planned are:
+
+- **SQL achievements and history**
+  - verbose event tracking with rich metadata
+  - permanent achievements first
+  - daily challenges added later
+  - intentionally structured so future Elasticsearch-style analysis is possible
+
+- **Containerization**
+  - one main Compose-based stack for the main app
+  - AI model gateway remains its own separate containerized side project
+
+- **AWS deployment**
+  - Linux VM / EC2 first
+  - cost-conscious deployment path
+
+- **SOAP notification side-service**
+  - real email delivery
+  - user toggles in settings
+  - first notification types:
+    - low-hunger reminder
+    - daily AI summary
+
+## Documentation
+
+If someone wants the deeper engineering/project plan rather than the presentation overview, the most important docs are:
+
+- `documentation/SOURCE_OF_TRUTH.md`
+- `documentation/ROADMAP.md`
+- `documentation/QUESTIONS.md`
+- `documentation/testing/TEST_STRATEGY.md`

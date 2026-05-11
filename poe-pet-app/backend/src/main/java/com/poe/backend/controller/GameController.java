@@ -1,5 +1,6 @@
 package com.poe.backend.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -85,6 +86,23 @@ public class GameController {
     public ResponseEntity<?> use(@RequestBody Map<String, Object> payload) {
         boolean confirm = payload.get("confirmOverwrite") instanceof Boolean b && b;
         return ResponseEntity.ok(appService.useConsumable(CurrentUser.get(), String.valueOf(payload.get("itemCode")), confirm));
+    }
+
+    /** Update user-facing pet name (used by AI prefix and some UI labels). */
+    @PostMapping("/pet/name")
+    public ResponseEntity<?> setPetName(@RequestBody Map<String, String> payload) {
+        return ResponseEntity.ok(appService.setPetName(CurrentUser.get(), payload != null ? payload.get("name") : null));
+    }
+
+    /** AI chat endpoint: backend calls the Local SLM Gateway and returns assistant text. */
+    @PostMapping("/ai/chat")
+    public ResponseEntity<?> aiChat(@RequestBody Map<String, Object> payload) {
+        String message = payload != null && payload.get("message") != null ? String.valueOf(payload.get("message")) : "";
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> conversation = payload != null && payload.get("conversation") instanceof List l
+                ? (List<Map<String, String>>) l
+                : List.of();
+        return ResponseEntity.ok(appService.aiChat(CurrentUser.get(), conversation, message));
     }
 
     @GetMapping("/minigames")

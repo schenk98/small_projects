@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobilní aplikace</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #5f7486;
+}
+
+/* TOP LIŠTA */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-left { flex: 1; }
+
+.topbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topbar-center a {
+    color: white;
+    text-decoration: none;
+}
+
+.topbar-center a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+.topbar-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.search {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 6px 10px;
+}
+
+.search input {
+    border: none;
+    outline: none;
+}
+
+/* OBSAH */
+.content {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+}
+
+/* OBRÁZKY */
+.box-img,
+.box-img-right {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+}
+
+.box-img { background-image: url("vobraze.jpg"); }
+.box-img-right { background-image: url("vobraze1.jpg"); }
+
+/* STŘED */
+.box-center {
+    flex: 2;
+    background: white;
+    padding: 15px;
+    box-sizing: border-box;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+/* SLOUPCE */
+.column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.column h3 {
+    margin: 0;
+    color: #5f7486;
+}
+
+/* TEXTOVÉ POLE */
+.text-box {
+    grid-column: 1 / -1;
+    background: #f5f5f5;
+    border: 1px solid #003366;
+    padding: 15px;
+    color: #003366;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* ===== ZPĚT TLAČÍTKO (PŘIDÁNO) ===== */
+.back-btn {
+    grid-column: 1 / -1;
+    width: 400px;
+    height: 30px;
+
+    background: white;
+    color: #003366;
+
+    border: 1px solid #003366;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* SPODNÍ LIŠTA */
+.services {
+    background: white;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 10px;
+}
+
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 10px;
+    color: #aaa;
+}
+
+/* PATIČKA */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<div class="topbar">
+
+    <div class="topbar-left"></div>
+
+    <div class="topbar-center">
+        <a href="stankovsko.html">Staňkovsko</a>
+            <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+            <a href="kontakty.html">Kontakty</a>
+            <a href="kalendar.html">Kalendář akcí</a>
+            <a href="odpady.html">Odpady</a>
+    </div>
+
+    <div class="topbar-right">
+        <div class="search">
+            <input type="text" placeholder="Hledat...">
+            🔍
+        </div>
+    </div>
+
+</div>
+
+<!-- OBSAH -->
+<div class="content">
+
+    <div class="box-img"></div>
+
+    <div class="box-center">
+
+        <div class="column">
+            <h3>Mobilní aplikace</h3>
+        </div>
+
+        <div class="column"></div>
+
+        <div class="text-box">
+            <h3>Chcete být informováni o aktualitách z našeho webu? Chcete mít k dispozici důležité informace od nás ve vašem chytrém telefonu?</h3>
+
+<p>Právě pro vás je určena naše mobilní aplikace – V OBRAZE.<p>
+ 
+<p>Aplikace vám přináší přehled aktualit z našeho webu, upozorní vás na nově vložené zprávy, dozvíte se včas o pořádaných akcích, můžete si prohlédnout fotografie nebo dokumenty vyvěšené na úřední desce. Do aplikace se nemusíte registrovat, neposkytujete žádná osobní data.<p>
+
+<h3>Jaké informace v aplikaci najdete?</h3>
+pozvánky na akce
+fotogalerie
+aktuality
+záznamy z úřední desky
+<h3>Co k aktivaci aplikace potřebujete?</h3>
+mít chytrý telefon nebo tablet s operačním systémem Android či iOS
+přístup na internet
+místo v úložišti telefonu cca 20 MB
+<h3>Jak si aplikaci stáhnout?</h3>
+Ve vašem telefonu si otevřete aplikaci Obchod Play, App Store nebo HUAWEI AppGalery
+Do vyhledávacího okna zadejte název „V OBRAZE“.
+Klikněte na Instalovat.
+Po nainstalování klikněte na položku Otevřít (povolit oznámení).
+Po otevření přidejte nový odběr. Lze sledovat i více organizací.
+Po výběru organizace se data z webu automaticky nahrají do aplikace.
+<h3>Aplikaci si můžete stáhnout pomocí odkazů, nebo QR kódů.</h3>
+
+<h3>Pro více informací klikněte na www.aplikacevobraze.cz.</h3>
+        </div>
+
+        <!-- ZPĚT -->
+        <a class="back-btn" href="index4.html">← Zpět</a>
+
+    </div>
+
+    <div class="box-img-right"></div>
+
+</div>
+
+<!-- SPODNÍ LIŠTA -->
+<div class="services">
+    <a href="#">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+</div>
+
+<!-- PATIČKA -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

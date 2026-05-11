@@ -4,6 +4,28 @@ $ErrorActionPreference = "Stop"
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { Get-Location }
 Set-Location $Root
 
+function Import-EnvFile {
+    param([string] $Path)
+
+    if (!(Test-Path $Path)) {
+        return
+    }
+
+    Write-Host "==> Loading env from $Path"
+    Get-Content $Path | ForEach-Object {
+        $line = $_.Trim()
+        if (!$line -or $line.StartsWith("#")) { return }
+        $parts = $line.Split("=", 2)
+        if ($parts.Length -ne 2) { return }
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim()
+        if ($name) { Set-Item -Path "Env:$name" -Value $value }
+    }
+}
+
+# Prefer local-only env file name.
+Import-EnvFile -Path (Join-Path $Root ".env.local")
+
 function Stop-ListenerOnPort {
     param([int] $PortNumber)
     try {

@@ -51,3 +51,80 @@ These are tracked in more detail in `documentation/SOURCE_OF_TRUTH.md` section *
 
 - Reliability: fallback behavior when AI service is down; timeouts; rate limiting strategy.
   - when the ai service is down fallback will be like meowing and barking (like several random strings - _barks cheerfully_, _Woof?_, _Makes curious noise_, ...)
+
+## Open items (SQL / deployment / SOAP track)
+
+These are tracked in more detail in `documentation/SOURCE_OF_TRUTH.md` section **7.5.8**.
+
+- SQL choice:
+  - decided: use PostgreSQL first
+
+- Activity/history granularity:
+  - decided first scope: core pet actions + minigame results + AI chat usage
+  - still open: how verbose each event payload should be
+  - current direction: the more data the better, with future Elasticsearch-style analysis in mind
+
+- Achievements:
+  - decided: permanent achievements only first
+  - daily challenges should be added later and are already part of the roadmap direction
+  - AI chat usage should be part of history from the start
+
+- Containerization / AWS:
+  - decided: one main Compose-based container setup for the main app if possible
+  - AI stays separate and is not part of the main app container stack
+  - containerization is preparation; deployment to AWS is the next step on top of it
+  - decided first deploy path: Linux VM / EC2
+
+- SOAP notification side-service:
+  - decided first delivery mode: real email
+  - decided first notification types:
+    - hungry pet notification below a low threshold (current direction: `< 15%`)
+    - daily AI summary / daily AI-based notification
+  - both first-version notification types should have their own toggle button in settings
+  - still open: which additional notification types should follow after that
+
+# AI kontejner app research:
+
+To, co plánuješ, je v roce 2026 naprosto ideální cesta pro menší projekty. Díky rozmachu tzv. SLMs (Small Language Models) už k rozumné konverzaci nepotřebuješ obří servery s GPU. Pokud ti stačí úroveň „lidská interakce“ a neplánuješ s AI řešit kvantovou fyziku, CPU instance na AWS ti udělají skvělou službu.
+
+Zde je tvůj průzkum pro „Low-cost AI hosting“:
+
+1. Výběr modelů pro rok 2026 (CPU-Friendly)
+
+Pro běh na CPU v reálném čase (aby uživatel nečekal 10 sekund na každé slovo) jsou nejlepší modely do velikosti 4 miliard parametrů v tzv. 4-bitové kvantizaci (GGUF).
+Model Velikost Paměť (RAM) Charakteristika
+Llama 4 Scout (1B) ~1 mld. < 1 GB Extrémně rychlý. Na CPU odpovídá okamžitě. Ideální pro jednoduché instrukce a chat.
+Phi-4 Mini (3.8B) ~4 mld. ~3 GB Král poměru cena/výkon. Od Microsoftu. Kvalitou se vyrovná dřívějším GPT-4 modelům. Skvělý na „lidské“ povídání.
+Gemma 4 (2B) ~2 mld. ~2 GB Od Googlu. Velmi kreativní model, dobrý pro přirozenou mluvu, lépe si poradí s češtinou než Phi.
+
+    Můj tip: Pokud chceš, aby to bylo levné a stabilní pro 2-3 lidi najednou, sáhni po Phi-4 Mini. Je to momentálně nejchytřejší model, který se ještě pohodlně vejde do levných AWS instancí.
+
+2. Odhad měsíčních nákladů na AWS (EC2)
+
+Pro tyto modely doporučuji instance řady Graviton (t4g). Jsou to ARM procesory od AWS, které jsou levnější a efektivnější než klasický Intel/AMD.
+Typ instance vCPU / RAM Cena/měsíc (On-Demand) Vhodný model
+t4g.small 2 vCPU / 2 GB ~$15 – 18 USD Llama 4 Scout (1B)
+t4g.medium 2 vCPU / 4 GB ~$30 – 35 USD Phi-4 Mini, Gemma 4 (2B)
+c7g.large 2 vCPU / 4 GB ~$45 – 50 USD Rychlejší odezva (Compute optimized)
+
+Ceny jsou orientační pro region us-east-1 (N. Virginia), v Evropě mohou být o 10-15 % vyšší. 3. Jak ušetřit ještě víc (Klíčové triky)
+
+    Spot Instances: Pokud ti nevadí, že by se instance mohla výjimečně restartovat (což u chatu pro 20 lidí přežiješ), použij „Spot“. Cena klesne na ~$5 – 8 USD měsíčně. To je pro PoC bezkonkurenční.
+
+    Kvantizace (GGUF): Musíš použít model ve formátu GGUF. Ten je „ořezaný“ tak, aby neběhal v grafické paměti, ale v normální RAM.
+
+    Vypínání (Instance Scheduler): Pokud víš, že tvých 20 uživatelů spí v noci (např. 00:00 – 06:00), můžeš instanci automaticky vypínat a ušetřit 25 % nákladů.
+
+4. Architektura tvého řešení
+
+Jelikož chceš kontejner, nejjednodušší cesta je:
+
+    Kontejner 1 (AI Engine): Použiješ image Ollama. Je to standard pro lokální AI. Do něj nahraješ model (např. phi4mini). Ollama ti automaticky vystaví API na portu 11434.
+
+    Kontejner 2 (Tvoje Appka): Tvá aplikace bude prostě posílat dotazy na vnitřní IP adresu prvního kontejneru.
+
+Verdikt pro tvůj projekt:
+
+Aby to „nesežralo kredity“, zvol instanci t4g.medium (cca 800 Kč měsíčně). Pokud chceš jít na absolutní minimum a stačí ti hloupější chatbot, vezmi t4g.small a model Llama 4 Scout (1B) (cca 400 Kč měsíčně).
+
+Chceš, abych ti pomohl sestavit přímo ten docker-compose soubor, který by ti tyhle dva kontejnery (appku a AI engine) propojil?

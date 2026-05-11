@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Město Staňkov – návrh</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #5f7486;
+}
+
+/* HEADER */
+.header {
+    display: flex;
+    width: 100%;
+}
+
+/* ERB */
+.logo {
+    width: 450px;
+    background: #5f7486;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.logo img {
+    width: 300px;
+    height: auto;
+}
+
+/* PRAVÁ STRANA HEADERU */
+.header-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* TOP MENU + SEARCH */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topbar a {
+    color: white;
+    text-decoration: none;
+    padding: 0 5px;
+}
+
+.topbar a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+/* VYHLEDÁVÁNÍ */
+.search {
+    margin-left: auto;
+    display: flex;
+    align-items: right;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 0px;
+}
+
+.search input {
+    border: none;
+    outline: none;
+    font-size: 14px;
+ }
+
+.search .icon {
+    margin-left: 15px;
+    color: #5f7486;
+}
+
+/* ALERT */
+.alert {
+    background: white;
+    color: #000;
+    padding: 15px;
+    margin-right: 15px;
+    text-align: left;
+    font-weight: bold;
+}
+
+/* 4 HLAVNÍ BOXY */
+.boxes {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+}
+
+.box {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+
+    padding: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+
+    text-decoration: none;
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    transition: 0.2s;
+}
+
+.box:hover {
+    transform: scale(1.03);
+    filter: brightness(1.1);
+}
+
+.box1 { background-image: url("obrazek1.jpg"); }
+.box2 { background-image: url("obrazek2.jpg"); }
+.box3 { background-image: url("obrazek3.jpg"); }
+.box4 { background-image: url("obrazek4.jpg"); }
+
+/* KALENDÁŘ */
+.news {
+    padding: 15px;
+    padding-top: 0px;
+    color: white;
+}
+
+.news-grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.news-card {
+    flex: 1;
+    min-width: 200px;
+    background: white;
+    color: #003366;
+    padding: 12px;
+}
+
+/* SLUŽBY */
+.services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px;
+    background: white;
+    justify-content: center;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 12px;
+}
+
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 12px;
+    color: #aaa;
+}
+
+/* PATIČKA */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+
+    <div class="logo">
+        <img src="erb.png" alt="Erb města">
+    </div>
+
+    <div class="header-right">
+
+        <div class="topbar">
+            <a href="stankovsko.html">Staňkovsko</a>
+            <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+            <a href="kontakty.html">Kontakty</a>
+            <a href="kalendar.html">Kalendář akcí</a>
+            <a href="odpady.html">Odpady</a>
+
+            <!-- VYHLEDÁVÁNÍ -->
+            <div class="search">
+                <input type="text" placeholder="Hledat...">
+                <span class="icon">🔍</span>
+            </div>
+        </div>
+
+        <div class="alert">
+            ⚠️ Odstávka vody 22.–24. 5. | Poplatky splatné do 30. 6.
+        </div>
+
+    </div>
+
+</div>
+
+<!-- 4 HLAVNÍ BOXY -->
+<div class="boxes">
+    <a href="ostankove.html" class="box box1">O Staňkově</a>
+    <a href="cosedeje.html" class="box box2">Co se děje ve městě</a>
+    <a href="copotrebujete.html" class="box box3">Co potřebujete vyřídit</a>
+    <a href="urad.html" class="box box4">Úřad a samospráva</a>
+</div>
+
+<!-- KALENDÁŘ AKCÍ -->
+<div class="news">
+    <h3>Kalendář akcí</h3>
+
+    <div class="news-grid">
+        <div class="news-card">
+            <strong>Oslavy Dne dětí</strong>
+            <p>sokolovna 31. 5. od 13 hodin</p>
+        </div>
+
+        <div class="news-card">
+            <strong>DOA rock</strong>
+            <p>Lidový dům 31. 5. od 13 hodin</p>
+        </div>
+
+        <div class="news-card">
+            <strong>Akademie III. věku</strong>
+            <p>Komunitní centrum 1. 6. od 13 hodin</p>
+        </div>
+
+        <div class="news-card">
+            <strong>Kolja</strong>
+            <p>kino 2. 6. od 13 hodin</p>
+        </div>
+    </div>
+</div>
+
+<!-- SLUŽBY -->
+<div class="services">
+    <a href="#">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+</div>
+
+<!-- PATIČKA -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

@@ -1,6 +1,12 @@
 spring:
   application:
     name: backend
+  security:
+    user:
+      # Setting an explicit user removes the noisy "generated password" dev warning.
+      # This app currently permits all requests anyway (see SecurityConfig), so this is only to keep logs clean.
+      name: ${SPRING_SECURITY_USER_NAME:dev}
+      password: ${SPRING_SECURITY_USER_PASSWORD:dev}
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://admin:admin123@localhost:27017/poe_pet?authSource=admin}
@@ -27,6 +33,11 @@ app:
   # Comma-separated emails that may use /api/dev tools and in-app developer dropdown (in addition to UserAccount.privileged).
   # Local example: APP_PRIVILEGED_EMAILS=you@example.com
   privilegedEmails: ${APP_PRIVILEGED_EMAILS:}
+
+  # Optional sidecar AI gateway (Local SLM Gateway) configuration.
+  # This is dev-oriented and may be overridden at runtime via privileged /api/dev/ai/config.
+  aiGatewayBaseUrl: ${APP_AI_GATEWAY_BASE_URL:}
+  aiGatewayApiKey: ${APP_AI_GATEWAY_API_KEY:}
 
 server:
   port: 8080

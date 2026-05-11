@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Město Staňkov – podstránka</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #5f7486;
+}
+
+/* =======================
+   TOP LIŠTA (FIX CENTER)
+======================= */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+
+    display: flex;
+    align-items: center;
+}
+
+/* LEVÝ PROSTOR */
+.topbar-left {
+    flex: 1;
+}
+
+/* MENU UPROSTŘED */
+.topbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topbar-center a {
+    color: white;
+    text-decoration: none;
+}
+
+.topbar-center a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+/* SEARCH VPRAVO */
+.topbar-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.search {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 6px 10px;
+}
+
+.search input {
+    border: none;
+    outline: none;
+}
+
+/* =======================
+   HLAVNÍ OBSAH
+======================= */
+.content {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+}
+
+/* OBRÁZKY */
+.box-img,
+.box-img-right {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+}
+
+.box-img { background-image: url("obrazek1a.jpg"); }
+.box-img-right { background-image: url("obrazek2.jpg"); }
+
+/* STŘED */
+.box-center {
+    flex: 2;
+    background: white;
+    padding: 15px;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.column h3 {
+    margin: 0;
+    color: #5f7486;
+}
+
+/* TLAČÍTKA */
+.column a {
+    width: 400px;
+    text-decoration: none;
+    color: #003366;
+    font-weight: bold;
+    padding: 15px;
+    background: #f5f5f5;
+    border: 1px solid #003366;
+}
+
+/* ZPĚT */
+.back-btn {
+    width: 260px;
+    padding: 12px;
+    background: #003366;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid #003366;
+}
+
+/* =======================
+   SPODNÍ LIŠTA (INVERT TOP)
+======================= */
+.services {
+    background: white;
+    padding: 10px;
+
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 10px;
+}
+
+/* svislé oddělovače */
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 10px;
+    color: #aaa;
+}
+
+/* PATIČKA */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<div class="topbar">
+
+    <div class="topbar-left"></div>
+
+    <div class="topbar-center">
+        <a href="stankovsko.html">Staňkovsko</a>
+            <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+            <a href="kontakty.html">Kontakty</a>
+            <a href="kalendar.html">Kalendář akcí</a>
+            <a href="odpady.html">Odpady</a>
+    </div>
+
+    <div class="topbar-right">
+        <div class="search">
+            <input type="text" placeholder="Hledat...">
+            🔍
+        </div>
+    </div>
+
+</div>
+
+<!-- OBSAH -->
+<div class="content">
+
+    <div class="box-img"></div>
+
+    <div class="box-center">
+
+        <div class="column">
+            <h3>Časopis Staňkovsko</h3>
+
+            <a href="https://www.stankovsko.cz/soubor/stankovsko-207-pdf">Aktuální číslo</a>
+            <a href="https://www.stankovsko.cz/soubor/stankovsko-207-pdf">Staňkovsko 207, březen</a>
+                       <a href="https://www.stankovsko.cz/soubor/stankovsko-206-pdf">Staňkovsko 206, únor</a>
+            <a href="#">Staňkovsko-205-leden</a>
+            <a href="https://www.stankovsko.cz/">Archiv</a>
+
+            <a class="back-btn" href="index4.html">← Zpět na hlavní stránku</a>
+        </div>
+
+    </div>
+
+    <div class="box-img-right"></div>
+
+</div>
+
+<!-- SPODNÍ LIŠTA -->
+<div class="services">
+   <a href="mobil.html">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+</div>
+
+<!-- PATIČKA -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

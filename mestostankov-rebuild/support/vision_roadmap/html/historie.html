@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Historie – Staňkov</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #5f7486;
+}
+
+/* ===== TOP LIŠTA ===== */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-left,
+.topbar-right {
+    flex: 1;
+}
+
+.topbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topbar a {
+    color: white;
+    text-decoration: none;
+}
+
+.topbar-center a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+/* ===== HLAVNÍ LAYOUT ===== */
+.content {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 15px;
+    padding: 15px;
+    align-items: start;
+}
+
+/* ===== BOČNÍ OBRÁZKY ===== */
+.side {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.side-img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+}
+
+.left-img {
+    background-image: url("historie1.jpg");
+}
+
+.right-img {
+    background-image: url("historie2.jpg");
+}
+
+/* ===== STŘED ===== */
+.center {
+    background: white;
+    padding: 15px;
+}
+
+/* NADPIS */
+.section-title {
+    color: #003366;
+    margin: 0 0 15px 0;
+}
+
+/* TEXT */
+.text-box {
+    background: #f5f5f5;
+    border: 1px solid #003366;
+    padding: 15px;
+    line-height: 1.6;
+    color: #003366;
+}
+
+.text-box p {
+    margin: 0 0 12px 0;
+}
+
+/* ===== ZPĚT ===== */
+.back-btn {
+    display: block;
+    width: 200px;
+    margin-top: 15px;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #003366;
+    text-decoration: none;
+    color: #003366;
+    background: white;
+    font-weight: bold;
+}
+
+/* ===== SPODNÍ LIŠTA ===== */
+.services {
+    background: white;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 10px;
+}
+
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 10px;
+    color: #aaa;
+}
+
+/* CHATBOT */
+.services a.chatbot {
+    font-weight: bold;
+    position: relative;
+    top: -2px;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+    .content {
+        grid-template-columns: 1fr;
+    }
+
+    .side {
+        flex-direction: row;
+    }
+
+    .side-img {
+        aspect-ratio: 16 / 9;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<div class="topbar">
+
+    <div class="topbar-left"></div>
+
+    <div class="topbar-center">
+        <a href="stankovsko.html">Staňkovsko</a>
+        <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+        <a href="kontakty.html">Kontakty</a>
+        <a href="kalendar.html">Kalendář akcí</a>
+        <a href="odpady.html">Odpady</a>
+    </div>
+
+    <div class="topbar-right"></div>
+
+</div>
+
+<!-- OBSAH -->
+<div class="content">
+
+    <!-- LEVÁ -->
+    <div class="side">
+        <div class="side-img left-img"></div>
+    </div>
+
+    <!-- STŘED -->
+    <div class="center">
+
+        <h2 class="section-title">Historie</h2>
+
+        <div class="text-box">
+
+<p>Staňkov je město ležící na řece Radbuze mezi Plzní a Domažlicemi. Leží v nadmořské výšce 387 m n. m., výměra obce činí 2 049 ha a aktuální počet obyvatel je 3268. Staňkov je rozdělen řekou Radbuzou na dvě části - Staňkov město na levém břehu řeky a Staňkov ves na pravém břehu. Součástí Staňkova jsou obce Ohučov, Krchleby a Vránov.</p>
+
+<p>První historická zmínka o Staňkovu pochází z roku 1233, kdy je připomínán rytíř Witla ze Stancowic a jeho bratr Prkosz jako jedni z prvních majitelů hrádku Lacembok. Více je o Staňkovu napsáno ze zápisu z roku 1271, kdy ves Staňkov prodává její majitel Witlo premonstrátskému klášteru v Chotěšově. Poprvé se druhá strana obce, tedy Staňkov městys, vyskytuje v pramenech roku 1367. Až do roku 1425 patřilo městečko i ves chotěšovskému klášteru. V období husitských válek podporoval klášter finančně císaře Zikmunda a k vzrůstajícím finančním požadavkům ze strany císaře byl Staňkov městys dán v zástavu Zdeňkovi z Drštky, který byl držitel horšovotýnského panství. Druhá část, Staňkov ves, byla k Horšovskému Týnu přikoupena v roce 1576. Zatímco ves patřila Horšovskému Týnu až do roku 1945, město připadlo roku 1623 chotěšovskému klášteru a patřilo mu až do jeho zrušení v roce 1782. Celé klášterní panství pak spravoval náboženský fond, od něhož koupili Staňkov městys Thurn-Taxisové za 1 080 000 zlatých a zůstali jeho majiteli do roku 1945.</p>
+
+<p>Staňkov ves a Staňkov město existoval odděleně až do roku 1938. Oddělení bylo tak důkladné, že Staňkov město patřil k Plzeňskému kraji a Staňkov ves patřil ke Klatovskému kraji. V roce 1938 byly obě obce právně sloučeny v jeden celek, ale statut města byl přiznán Staňkovu až roku 1960.</p>
+
+<p>Okolo roku 1800 začalo městečko užívat městský znak. Znak byl a je dosud používán v této podobě: modrý štít, v jehož dolní polovině je stříbrná městská hradba, uprostřed hradby je umístěn zlatý štít se třemi páry jeleních parohů (šlechtický erb Hroznatů), za hradbou vystupuje horní polovina poutníka v hnědém oděvu s velkým černým kloboukem na hlavě a s poutnickou holí v ruce. Ten má znázorňovat sv. Jakuba Většího, patrona staňkovského kostela.</p>
+
+<p>Roku 1639 bylo Staňkovu vydáno mýtní privilegium, když vybírané mýtné přes řeku Radbuzu bylo dalším zdrojem příjmů do obecní pokladny. O osm let později vznikla v městečku pošta. Město Staňkov získalo od roku 1690 privilegia na pořádání trhů, a to na týdenní trhy a dva výroční trhy v roce (úterý po Novém roce a úterý po sv. Františku).</p>
+
+<p>Roku 1602 obdrželi Staňkovští várečné právo. Pivo se vařilo po domácku a první pivovar byl pravděpodobně v místnostech Staré radnice (dům čp. 1). Roku 1873 byl zahájen provoz v novém pivovaru Městys staňkovský akciový pivovar. Tento byl roku 1875 pro nedostatek kapitálu prodán hraběti Trauttmansdorffovi. Roku 1908 byl pro tento pivovar zřízen nový gravitační vodovod, který byl v provozu pro účel užívání pitné vody pro město Staňkov ještě v nedávné době.</p>
+
+        </div>
+
+        <a class="back-btn" href="index4.html">← Zpět</a>
+
+    </div>
+
+    <!-- PRAVÁ -->
+    <div class="side">
+        <div class="side-img right-img"></div>
+    </div>
+
+</div>
+
+<!-- SPODNÍ LIŠTA -->
+<div class="services">
+     <a href="mobil.html">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

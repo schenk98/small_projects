@@ -188,6 +188,8 @@ Rule: avoid “god components”; prefer files/functions under ~250 lines unless
 
 Goal: turn the pet into a character that can “talk” in a consistent voice, driven by an AI model that runs under the owner's credentials.
 
+Hard constraint: **cost is the #1 priority**. “Stupid and slow but cheap” is preferred over “fast and expensive”.
+
 #### 7.4.1 UX spec (frontend)
 - Add a **chat panel** (prompt textbox + send button + answer area styled like a conversation).
 - AI responses must be written **in the pet’s voice** (personality, tone, quirks).
@@ -205,10 +207,9 @@ We will run the model as a **separate standalone service** (no frontend) and cal
 Minimum API contract (shape, not implementation):
 - `POST /v1/chat` with:
   - `userId` (or a stable pseudonymous id)
-  - `petStateSnapshot` (species, derived mood, stats %, active effects summary, equipped cosmetics summary)
+  - `contextPrefix` (fixed caller-provided “system/prefix” string; includes pet name/species/stats)
   - `conversation` (last N turns)
-  - `userPrompt`
-  - `personaVersion` (so we can evolve the prompt without breaking old behavior)
+  - `message` (the user message)
 - Response:
   - `assistantText`
   - optional `usage` (tokens, latency), for debugging and cost tracking
@@ -233,6 +234,28 @@ Observability goals (TBD):
 - log per-request latency, model name, prompt size, response size
 - capture failure modes cleanly (timeouts, overload, model errors)
 
+Current working assumptions (from answers/research):
+- **AWS region**: `eu-central-1` (Frankfurt) preferred.
+- **Concurrency**: up to ~3 active users at a time; ~20 registered accounts total.
+- **Hardware**: CPU-only for now.
+- **Runtime**: prefer **Ollama** as the local inference engine, but model choice comes first.
+- **Chat history**: keep rolling context (e.g. last ~5 messages) + persona context; store in-memory initially (exact location TBD).
+- **Fallback when AI is down**: return pet-noise strings like `_barks cheerfully_`, `_Woof?_`, `_Makes curious noise_`, etc.
+
+Caller-owned prefix format (baseline):
+- `contextPrefix` should look like:
+  - `You are cute pet named <name> of type <dog> that can magically speak. You are <happy>/<happy_max> happy, <hunger>/<hunger_max> fed and you have <energy>/<energy_max> energy. Respond on following message impersonating this character in language of that message: <message>`
+
+Cost-first hosting notes (research summary; numbers are directional, not guaranteed):
+- CPU-friendly models are typically **≤ 4B params** with **4-bit quantization** (GGUF).
+- Example instance families discussed for cheap CPU hosting:
+  - `t4g.small` (2 vCPU / 2 GB): lowest cost; likely only supports very small models
+  - `t4g.medium` (2 vCPU / 4 GB): still cheap; more realistic for small chat models
+- Common cost-saving techniques:
+  - **Spot** instances (cheaper, but can restart)
+  - scheduling downtime (turn off when unused)
+  - strict prompt/response limits (reduces CPU time)
+
 #### 7.4.4 Roadmap (detailed steps)
 
 Phase A — Product/spec alignment (docs-first)
@@ -241,13 +264,18 @@ Phase A — Product/spec alignment (docs-first)
 - Decide where chat lives in the UI (tab vs panel).
 
 Phase B — Choose AI model + runtime (research spike)
-- Decide the model family and size target (small, offline, CPU/GPU needs).
-- Decide inference runtime:
-  - `llama.cpp`-style (GGUF) vs `transformers` (HF) vs vendor runtime
-- Decide quantization level / hardware:
-  - CPU-only vs GPU (cost/latency trade-off)
+- Decide the model family and size target (small, offline, CPU-only).
+- Decide inference runtime **after** model choice:
+  - prefer **Ollama** (simple local engine) backed by GGUF-style quantized models where possible
+  - alternative: `llama.cpp` bindings directly in Python
 - Decide “no internet access” constraints:
   - confirm model is self-contained (no tools, no browsing)
+- Establish the cost rubric:
+  - RAM footprint
+  - acceptable latency for short replies
+  - tokens/sec on a cheap CPU instance
+  - license compatibility
+  - ease of deployment
 
 Phase C — Build the AI service (standalone Python backend)
 - Create a minimal HTTP API that can:
@@ -299,6 +327,221 @@ Reliability:
 
 Dev workflow:
 - Local dev: do we run a tiny model locally, or stub the AI service?
+
+### 7.5 SQL achievements + history + deployment + SOAP notifications (planned)
+
+This is the next major learning track after the current PoC:
+- add a relational data store for richer history / achievements / analytics
+- containerize the full app stack for reproducible local/prod environments
+- deploy the stack to AWS
+- add a small side-service that exposes a SOAP API for notifications
+
+This section is intentionally more architectural than the AI section above: it defines the direction and the integration steps, not final implementation details.
+
+#### 7.5.1 Goals
+
+Primary goals:
+- learn **SQL** in a meaningful way inside this project
+- learn **containerization** as a real deployment preparation step
+- learn **Linux/AWS deployment** instead of staying local-only
+- learn **SOAP** in a bounded, non-cluttering way through a side-service
+
+Product goals:
+- give the player visible long-term progression (achievements, journal, history)
+- retain richer event data for future analytics and possible Elasticsearch indexing later
+- add user-facing notification settings without stuffing SOAP concerns into the core gameplay model
+
+#### 7.5.2 Persistence split (planned)
+
+Current state:
+- MongoDB stores live game state well (`pets`, `wallet`, `inventory`, configs, sessions)
+
+Planned split:
+- **MongoDB** keeps current gameplay state and flexible document-style config
+- **SQL database** stores relational / historical / reporting-oriented data
+
+Planned SQL scope:
+- activity history / event log
+- achievement definitions + user progress/unlocks
+- optional challenge participation / leaderboard snapshots
+- notification preferences and outbound notification records
+
+Design rule:
+- do **not** migrate everything to SQL just because SQL is being added
+- use SQL where it is naturally stronger: history, relations, reporting, constraints, time-based records
+
+#### 7.5.3 Phase 1 — Activity history and achievements in SQL
+
+Purpose:
+- build the app's first relational subsystem without destabilizing the existing Mongo gameplay core
+
+Planned steps:
+1. Use **PostgreSQL** as the first SQL engine.
+2. Add a separate SQL schema for history / achievements.
+3. Record gameplay events whenever important actions happen, for example:
+   - login
+   - feed / use consumable
+   - buy item
+   - change species / cosmetics / pet name
+   - finish minigame
+   - AI chat usage
+4. Build achievement evaluation on top of that event stream.
+5. Add APIs/UI for:
+   - achievement list
+   - unlocked achievements
+   - recent activity / pet journal
+   - lightweight stats summary
+
+Initial data model direction:
+- `activity_event`
+  - append-only, rich metadata, intentionally verbose and well-structured for future analytics
+- `achievement_definition`
+  - achievement code, title, description, category, active flag
+- `user_achievement`
+  - unlocked achievements, unlock time, progress fields if needed
+- optional later:
+  - `challenge_definition`
+  - `user_challenge_progress`
+  - `leaderboard_snapshot`
+
+Analytics intention:
+- keep enough normalized + raw metadata so that later we could feed Elasticsearch or another analytics/search system
+- we are not adding Elasticsearch now, but the event model should avoid painting us into a corner
+
+Achievement rollout direction:
+- start with **permanent achievements only**
+- add **daily challenges later** after the base achievement/history system is stable
+
+#### 7.5.4 Phase 2 — Full stack containerization
+
+Purpose:
+- make the app reproducible locally and make AWS deployment much simpler later
+
+Scope:
+- frontend
+- backend
+- MongoDB
+- SQL database
+- MailHog (dev only)
+- optional notification side-service profile
+
+Current preference:
+- use **one main Compose-based stack** for the main app if possible
+- keep the AI gateway/container separate because it is its own side project
+
+Planned steps:
+1. Add Dockerfiles for frontend and backend.
+2. Extend Compose so the full app stack can run consistently in containers.
+3. Separate dev-only tooling from deployable services (profiles or separate compose files).
+4. Move runtime config to env vars / secrets rather than local assumptions.
+5. Document startup, health checks, seed flow, and troubleshooting.
+
+Important clarification:
+- **containerization is not the same as deployment**
+- containerization prepares the app for deployment; AWS deployment is the next phase
+
+#### 7.5.5 Phase 3 — AWS deployment
+
+Purpose:
+- learn Linux/AWS operations and make the project actually deployable
+
+Cost-first direction:
+- prefer simpler, cheaper infrastructure first
+- only move to more managed/complex services when needed
+
+Planned path:
+1. Choose the initial deployment style:
+   - cheapest/simple path: **Linux VM / EC2 + Docker Compose**
+   - later evolution path: managed container platform if justified
+2. Deploy the containerized stack to AWS.
+3. Add the operational basics:
+   - env vars / secrets
+   - health checks
+   - logs
+   - backups
+   - TLS / domain
+   - restart policy
+4. Validate the AI gateway and notification side-service integration in that environment.
+
+Learning goal:
+- containerization is the preparation layer
+- AWS deployment is the runtime/ops layer on top of that
+
+#### 7.5.6 Phase 4 — SOAP notification side-service
+
+Purpose:
+- learn SOAP in a bounded integration that has real product value
+
+Important design rule:
+- SOAP is **not** the core style of this app
+- we use it in a contained side-service so the main pet app does not become cluttered with legacy-style concerns
+
+Concept:
+- create a separate notification-oriented service with a SOAP API
+- the pet app backend becomes a SOAP client of that service
+- user-facing settings live in the pet app
+
+Planned user-facing feature:
+- add a notification toggle/settings area in the pet app
+- examples:
+  - reminders when the pet is hungry / tired
+  - daily summary
+  - achievement unlocked notification
+  - optional AI/pet reminder messages later
+
+Planned service responsibilities:
+- receive SOAP requests like "send reminder", "send achievement notice", "test notification"
+- keep notification delivery concerns isolated from the main game backend
+- optionally persist notification records / attempts in SQL
+
+Initial notification scope:
+- real email delivery from the side-service (not mock-only)
+- first notification types:
+  - hungry-pet reminder when hunger drops below a low threshold (current direction: `< 15%`)
+  - daily AI summary / daily pet notification
+- both should have their own toggle button in settings
+
+Why this is a good fit:
+- teaches SOAP without turning the whole project into a SOAP app
+- gives the integration a real reason to exist
+- naturally connects with notification settings in the main app
+
+#### 7.5.7 Suggested implementation order
+
+Recommended order:
+1. SQL event history foundation
+2. achievements on top of history
+3. containerize the app stack
+4. deploy to AWS
+5. add SOAP notification side-service
+
+Why this order:
+- achievements/history create product value immediately
+- containerization helps every later phase
+- AWS deployment is easier once the stack is containerized
+- SOAP side-service is most useful once notification preferences and deployment shape are clearer
+
+#### 7.5.8 Open questions for this roadmap
+
+SQL/history:
+- How raw should `activity_event` be? Minimal business events or very verbose event payloads?
+- Which actions must be tracked from day one?
+  - current direction: core pet actions + minigame results + AI chat usage from the first version
+
+Achievements:
+- permanent achievements first is the current direction
+- daily challenges are planned later, not in the first achievement release
+- Should achievements be purely backend-driven, or can some UI-only milestones exist?
+
+Containerization/deploy:
+- we currently prefer one main deployable Compose setup for the main app if possible
+- AI remains separate from that stack
+- For first AWS deployment, we currently prefer the simpler Linux VM / EC2 path.
+
+Notifications / SOAP:
+- First channel: real email delivery.
+- Future channel abstraction is allowed later, but not required for the first version.
+- Which additional events beyond low-hunger + daily AI summary should be allowed by default?
 
 ## 8) Development Rule
 

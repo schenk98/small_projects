@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aktuality</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #5f7486;
+}
+
+/* ===== TOP LIŠTA ===== */
+.topbar {
+    background: #5f7486;
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-left,
+.topbar-right {
+    flex: 1;
+}
+
+.topbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topbar a {
+    color: white;
+    text-decoration: none;
+}
+
+.topbar-center a:not(:last-child)::after {
+    content: " |";
+    margin-left: 10px;
+    color: #ccc;
+}
+
+/* ===== HLAVNÍ LAYOUT ===== */
+.content {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 15px;
+    padding: 15px;
+    align-items: start;
+}
+
+/* ===== BOČNÍ OBRÁZKY ===== */
+.side {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.side-img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-size: cover;
+    background-position: center;
+}
+
+.left-img {
+    background-image: url("obrazek1a.jpg");
+}
+
+.right-img {
+    background-image: url("obrazek2.jpg");
+}
+
+/* ===== STŘED ===== */
+.center {
+    background: white;
+    padding: 15px;
+}
+
+/* NADPISY */
+.section-title {
+    color: #003366;   /* modrá jako Zpět */
+    margin: 0 0 10px 0;
+}
+
+/* BOXY */
+.text-box {
+    background: #f5f5f5;
+    border: 1px solid #003366;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+/* ===== ZPĚT ===== */
+.back-btn {
+    display: block;
+    width: 200px;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #003366;
+    text-decoration: none;
+    color: #003366;
+    background: white;
+    font-weight: bold;
+}
+
+/* ===== SPODNÍ LIŠTA ===== */
+.services {
+    background: white;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.services a {
+    color: #5f7486;
+    text-decoration: none;
+    padding: 0 10px;
+}
+
+.services a:not(:last-child)::after {
+    content: "|";
+    margin-left: 10px;
+    color: #aaa;
+}
+
+/* CHATBOT TUČNĚ + POSUN */
+.services a.chatbot {
+    font-weight: bold;
+    position: relative;
+    top: -2px;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+    background: #003366;
+    color: white;
+    text-align: center;
+    padding: 15px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+    .content {
+        grid-template-columns: 1fr;
+    }
+
+    .side {
+        flex-direction: row;
+    }
+
+    .side-img {
+        aspect-ratio: 16 / 9;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<div class="topbar">
+
+    <div class="topbar-left"></div>
+
+    <div class="topbar-center">
+        <a href="stankovsko.html">Staňkovsko</a>
+        <a href="https://platby.plzensky-kraj.cz/obce/domazlice/stankov">Platební portál</a>
+        <a href="kontakty.html">Kontakty</a>
+        <a href="kalendar.html">Kalendář akcí</a>
+        <a href="odpady.html">Odpady</a>
+    </div>
+
+    <div class="topbar-right"></div>
+
+</div>
+
+<!-- OBSAH -->
+<div class="content">
+
+    <!-- LEVÁ -->
+    <div class="side">
+        <div class="side-img left-img"></div>
+    </div>
+
+    <!-- STŘED -->
+    <div class="center">
+
+        <h3 class="section-title">Aktuality</h3>
+
+        <!-- 5 AKTUALIT -->
+        <div class="text-box">Aktualita 1</div>
+        <div class="text-box">Aktualita 2</div>
+        <div class="text-box">Aktualita 3</div>
+        <div class="text-box">Aktualita 4</div>
+        <div class="text-box">Aktualita 5</div>
+<div class="text-box">Aktualita 6</div>
+        <div class="text-box">Aktualita 7</div>
+        <div class="text-box">Aktualita 8</div>
+        <div class="text-box">Aktualita 9</div>
+        <div class="text-box">Aktualita 10</div>
+
+
+        <a class="back-btn" href="cosedeje.html">← Zpět</a>
+
+    </div>
+
+    <!-- PRAVÁ -->
+    <div class="side">
+        <div class="side-img right-img"></div>
+    </div>
+
+</div>
+
+<!-- SPODNÍ LIŠTA -->
+<div class="services">
+   <a href="mobil.html">Mobilní aplikace</a>
+    <a href="https://www.mestostankov.cz/seniori/">Senior web</a>
+    <a href="https://smart-info.cz/registrace/vyber-kategorii">Odběr zpráv</a>
+    <a href="#"><h3>Chatbot</h3></a>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    © Město Staňkov
+</div>
+
+</body>
+</html>

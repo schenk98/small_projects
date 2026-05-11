@@ -37,6 +37,7 @@ import com.poe.backend.repo.ShopItemRepo;
 import com.poe.backend.repo.UserAccountRepo;
 import com.poe.backend.repo.UserTokenRepo;
 import com.poe.backend.repo.WalletRepo;
+import com.poe.backend.service.AiGatewayClient;
 
 @Service
 public class AppService {
@@ -60,6 +61,7 @@ public class AppService {
     private final MinigameSessionRepo minigameSessionRepo;
     private final PetVisualAssetRepo petVisualAssetRepo;
     private final JavaMailSender mailSender;
+    private final AiGatewayClient aiGatewayClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom random = new SecureRandom();
 
@@ -78,7 +80,7 @@ public class AppService {
     public AppService(UserAccountRepo userAccountRepo, UserTokenRepo userTokenRepo, PetStateRepo petStateRepo,
             WalletRepo walletRepo, ShopItemRepo shopItemRepo, InventoryRepo inventoryRepo,
             MinigameRepo minigameRepo, MinigameSessionRepo minigameSessionRepo, PetVisualAssetRepo petVisualAssetRepo,
-            JavaMailSender mailSender) {
+            JavaMailSender mailSender, AiGatewayClient aiGatewayClient) {
         this.userAccountRepo = userAccountRepo;
         this.userTokenRepo = userTokenRepo;
         this.petStateRepo = petStateRepo;
@@ -89,6 +91,40 @@ public class AppService {
         this.minigameSessionRepo = minigameSessionRepo;
         this.petVisualAssetRepo = petVisualAssetRepo;
         this.mailSender = mailSender;
+        this.aiGatewayClient = aiGatewayClient;
+    }
+
+    /**
+     * Developer-only AI chat test. Uses the current user's simulated pet stats to build a fixed context prefix,
+     * then calls the standalone Local SLM Gateway.
+     *
+     * Security: privileged users only (enforced by caller).
+     */
+    public Map<String, Object> devAiChatTest(String userId, String petName, String message) {
+        if (!aiGatewayClient.isEnabled()) {
+            return Map.of("ok", false, "error", "AI gateway not configured (app.aiGatewayBaseUrl)");
+        }
+        PetState pet = getPet(userId);
+        String species = pet.speciesCode != null && !pet.speciesCode.isBlank() ? pet.speciesCode : "pet";
+        String name = petName != null && !petName.isBlank() ? petName : "Pet";
+        String prefix =
+                "You are cute pet named " + name + " of type " + species + " that can magically speak. "
+                        + "You are " + Math.round(pet.happiness) + "/100 happy, "
+                        + Math.round(pet.hunger) + "/100 fed and you have " + Math.round(pet.energy) + "/100 energy. "
+                        + "Respond on following message impersonating this character (not explicitly stating any of these information) "
+                        + "in language of that message:";
+
+        Map<String, Object> payload = Map.of(
+                "userId", userId,
+                "contextPrefix", prefix,
+                "conversation", List.of(),
+                "message", message != null ? message : "");
+        try {
+            Map<String, Object> res = aiGatewayClient.chat(payload);
+            return Map.of("ok", true, "result", res);
+        } catch (Exception e) {
+            return Map.of("ok", false, "error", "AI gateway error: " + e.getMessage());
+        }
     }
 
     /**
@@ -212,6 +248,7 @@ public class AppService {
      */
     public Map<String, Object> getDashboard(String userId) {
         PetState pet = getPet(userId);
+        migratePetNameIfMissing(pet);
         Wallet wallet = walletRepo.findByUserId(userId).orElseThrow();
         Map<String, Object> res = new HashMap<>();
         res.put("pet", pet);
@@ -219,6 +256,79 @@ public class AppService {
         res.put("privileged", isPrivileged(userId));
         res.put("rewardPreview", buildRewardPreview(userId));
         return res;
+    }
+
+    /** Ensure older pet documents get a default name. */
+    private void migratePetNameIfMissing(PetState pet) {
+        if (pet.name == null || pet.name.isBlank()) {
+            pet.name = "Pet";
+            petStateRepo.save(pet);
+        }
+    }
+
+    /** Update the current user's pet name. */
+    public Map<String, Object> setPetName(String userId, String name) {
+        PetState pet = simulate(userId);
+        String n = name != null ? name.trim() : "";
+        if (n.isEmpty()) {
+            n = "Pet";
+        }
+        if (n.length() > 32) {
+            n = n.substring(0, 32);
+        }
+        pet.name = n;
+        petStateRepo.save(pet);
+        return Map.of("ok", true, "pet", pet);
+    }
+
+    /** Main (non-dev) AI chat: build fixed prefix from pet stats and call the AI gateway. */
+    public Map<String, Object> aiChat(String userId, List<Map<String, String>> conversation, String message) {
+        PetState pet = getPet(userId);
+        String species = pet.speciesCode != null && !pet.speciesCode.isBlank() ? pet.speciesCode : "pet";
+        String name = pet.name != null && !pet.name.isBlank() ? pet.name : "Pet";
+        String prefix =
+                "You are cute pet named " + name + " of type " + species + " that can magically speak. "
+                        + "You are " + Math.round(pet.happiness) + "/100 happy, "
+                        + Math.round(pet.hunger) + "/100 fed and you have " + Math.round(pet.energy) + "/100 energy. "
+                        + "Respond on following message impersonating this character (not explicitly stating any of these information) "
+                        + "in language of that message:";
+
+        if (!aiGatewayClient.isEnabled()) {
+            return Map.of(
+                    "assistantText", fallbackNoisesForSpecies(species),
+                    "fallbackUsed", true,
+                    "fallbackReason", "gateway_not_configured");
+        }
+
+        Map<String, Object> payload = Map.of(
+                "userId", userId,
+                "contextPrefix", prefix,
+                "conversation", conversation != null ? conversation : List.of(),
+                "message", message != null ? message : "");
+        try {
+            Map<String, Object> res = aiGatewayClient.chat(payload);
+            // Ensure callers always get a consistent shape.
+            if (res.get("assistantText") instanceof String) {
+                return res;
+            }
+            return Map.of("assistantText", String.valueOf(res), "fallbackUsed", false);
+        } catch (Exception e) {
+            return Map.of(
+                    "assistantText", fallbackNoisesForSpecies(species),
+                    "fallbackUsed", true,
+                    "fallbackReason", "gateway_error");
+        }
+    }
+
+    private String fallbackNoisesForSpecies(String speciesCode) {
+        String s = speciesCode != null ? speciesCode.trim().toLowerCase(Locale.ROOT) : "";
+        if (s.equals("cat")) {
+            String[] options = new String[] { "*meows softly*", "*purrs*", "*mrrp?*", "*makes a curious cat noise*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        // default: dog-ish
+        String[] options = new String[] { "*barks cheerfully*", "*woof?*", "*wags tail*", "*makes a curious noise*" };
+        return options[(int) (Math.random() * options.length)];
     }
 
     /** Visible to clients to gate developer tools UI. */

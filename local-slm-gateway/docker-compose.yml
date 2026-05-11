@@ -1,0 +1,25 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./gateway
+    env_file:
+      - gateway.env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ports:
+      - "8090:8090"
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama:
+

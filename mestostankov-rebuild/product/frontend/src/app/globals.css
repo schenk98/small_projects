@@ -1,0 +1,433 @@
+@import "tailwindcss";
+
+:root {
+  /* Light palette: inspired by “old” design (clean, calm, readable) */
+  --background: #f8f9fa;
+  --foreground: #111827;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --muted: #475569;
+  --link: #0b4aa2;
+  --brand: #003366;
+  --header-bg: #5f7486;
+  --header-fg: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark palette: inspired by the new vision */
+    --background: #0b1220;
+    --foreground: #e5e7eb;
+    --surface: #0f172a;
+    --border: #1f2a44;
+    --muted: #a3b0c2;
+    --link: #a6c8ff;
+    --brand: #5f7486;
+  }
+}
+
+/* Explicit theme override (used by toggle) */
+html[data-theme="light"] {
+  --background: #f8f9fa;
+  --foreground: #111827;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --muted: #475569;
+  --link: #0b4aa2;
+  --brand: #003366;
+  --header-bg: #5f7486;
+  --header-fg: #ffffff;
+}
+
+html[data-theme="dark"] {
+  --background: #0b1220;
+  --foreground: #e5e7eb;
+  --surface: #0f172a;
+  --border: #1f2a44;
+  --muted: #a3b0c2;
+  --link: #a6c8ff;
+  --brand: #5f7486;
+  --header-bg: #0f172a;
+  --header-fg: #e5e7eb;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Vision: older audience readability */
+html {
+  font-size: 18px;
+}
+
+/* Slightly nicer default background (vision-like) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 500px at 20% 0%, color-mix(in srgb, var(--header-bg), transparent 55%), transparent 70%),
+    radial-gradient(900px 500px at 80% 0%, color-mix(in srgb, var(--brand), transparent 70%), transparent 75%);
+  opacity: 0.55;
+  z-index: -1;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Minimal layout system (doesn't depend on Tailwind) */
+.container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.card.card-hover:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 160ms ease;
+}
+
+.hero {
+  border-color: color-mix(in srgb, var(--header-bg), var(--border) 55%);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--header-bg), white 90%) 0%, var(--surface) 60%),
+    radial-gradient(900px 500px at 90% 10%, color-mix(in srgb, var(--brand), transparent 70%), transparent 70%);
+}
+
+.site-header {
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--header-bg), black 0%) 0%,
+      color-mix(in srgb, var(--header-bg), black 15%) 100%
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--header-bg), black 30%);
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--header-fg);
+}
+
+.brand-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--header-fg), transparent 30%);
+}
+
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+
+.nav-links a {
+  color: var(--header-fg);
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-icon-btn {
+  border: 1px solid color-mix(in srgb, var(--header-fg), transparent 70%);
+  background: color-mix(in srgb, var(--header-bg), white 10%);
+  color: var(--header-fg);
+  border-radius: 999px;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  padding: 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.header-icon-btn:hover {
+  background: color-mix(in srgb, var(--header-fg), transparent 88%);
+}
+
+.lang-compact {
+  position: relative;
+}
+
+.lang-compact summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.lang-compact summary::-webkit-details-marker {
+  display: none;
+}
+
+.lang-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 14rem;
+  z-index: 30;
+}
+
+.lang-item {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  font-weight: 850;
+}
+
+.lang-item:hover {
+  filter: brightness(1.02);
+}
+
+.nav-mobile {
+  display: none;
+  margin-left: auto;
+  position: relative;
+}
+
+.nav-mobile summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.nav-mobile summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-mobile-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 14rem;
+  z-index: 20;
+}
+
+.nav-mobile-panel a {
+  color: var(--foreground);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.nav-mobile-panel a:hover {
+  text-decoration: underline;
+}
+
+.header-pill {
+  border: 1px solid color-mix(in srgb, var(--header-fg), transparent 75%);
+  background: color-mix(in srgb, var(--header-bg), white 10%);
+  color: var(--header-fg);
+  border-radius: 999px;
+}
+
+.header-pill-btn {
+  border: 1px solid color-mix(in srgb, var(--header-fg), transparent 70%);
+  background: transparent;
+  color: var(--header-fg);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.header-pill-btn:hover {
+  background: color-mix(in srgb, var(--header-fg), transparent 88%);
+}
+
+.search-row {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-input {
+  flex: 1;
+  border: 1px solid color-mix(in srgb, var(--header-fg), transparent 70%);
+  background: white;
+  color: var(--foreground);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: color-mix(in srgb, var(--border), var(--foreground) 25%);
+}
+
+.btn {
+  border: 1px solid color-mix(in srgb, var(--header-fg), transparent 70%);
+  background: color-mix(in srgb, var(--brand), white 10%);
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.btn:hover {
+  filter: brightness(1.05);
+}
+
+/* Responsive header */
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 1rem;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .nav-mobile {
+    display: block;
+  }
+
+  .header-actions {
+    gap: 0.35rem;
+  }
+
+  .search-row {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+/* Print: clean PDF output */
+@media print {
+  body::before {
+    display: none !important;
+  }
+
+  .site-header,
+  .nav-mobile,
+  .nav-links,
+  .header-actions,
+  .search-row,
+  button {
+    display: none !important;
+  }
+
+  .container {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  a {
+    color: black !important;
+    text-decoration: none !important;
+  }
+
+  .content-prose {
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+}
+
+/* Readable “town site” typography for mirrored HTML */
+.content-prose {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+
+.content-prose h1,
+.content-prose h2,
+.content-prose h3,
+.content-prose h4 {
+  color: var(--foreground);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+
+.content-prose h1 { font-size: 1.6rem; }
+.content-prose h2 { font-size: 1.25rem; }
+.content-prose h3 { font-size: 1.1rem; }
+.content-prose h4 { font-size: 1.05rem; }
+
+.content-prose p,
+.content-prose ul,
+.content-prose ol,
+.content-prose table {
+  margin: 0.8em 0;
+}
+
+.content-prose ul,
+.content-prose ol {
+  padding-left: 1.4em;
+}
+
+.content-prose li { margin: 0.25em 0; }
+
+.content-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.content-prose th,
+.content-prose td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.6em;
+  vertical-align: top;
+}
+
+.content-prose img {
+  max-width: 100%;
+  height: auto;
+}

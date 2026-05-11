@@ -4,12 +4,14 @@ import type { Dashboard } from '../../lib/dashboard'
 export function CustomizePage({
   dashboard,
   visualCatalog,
+  onSetName,
   onSetSpecies,
   onSetMoodAsset,
   onEquipVisualLayers,
 }: {
   dashboard: Dashboard
   visualCatalog: PetVisualAsset[]
+  onSetName: (name: string) => void
   onSetSpecies: (next: SpeciesCode) => void
   onSetMoodAsset: (mood: MoodCode, code: string) => void
   onEquipVisualLayers: (backgroundAssetCode: string, foregroundAssetCode: string) => void
@@ -26,6 +28,16 @@ export function CustomizePage({
     <div className="card pane">
       <h3>Pet customization</h3>
       <p className="muted">One species on stage at a time. Pick default or owned mood art; set scene background and foreground (starters and purchased items only).</p>
+
+      <label className="dev-stat-label" style={{ marginTop: 8 }}>
+        Pet name
+        <input
+          value={dashboard.pet.name || ''}
+          placeholder="Pet"
+          onChange={(e) => onSetName(e.target.value)}
+        />
+      </label>
+
       <div className="subnav">
         <button type="button" className={speciesCode === 'dog' ? 'tab active' : 'tab'} onClick={() => onSetSpecies('dog')}>Dog</button>
         <button type="button" className={speciesCode === 'cat' ? 'tab active' : 'tab'} onClick={() => onSetSpecies('cat')}>Cat</button>

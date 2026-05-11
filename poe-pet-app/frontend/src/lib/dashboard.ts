@@ -20,6 +20,7 @@ export type Dashboard = {
     hunger: number
     happiness: number
     energy: number
+    name?: string
     speciesCode?: 'dog' | 'cat'
     moodAssetCodes?: Partial<Record<'happy' | 'sad' | 'hungry' | 'tired' | 'playing_dead', string>>
     ownedVisualAssetCodes?: string[]

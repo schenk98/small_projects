@@ -21,6 +21,8 @@ public class PetState {
     public double happiness;
     /** Energy percent 0..100. Minigames consume energy; time regenerates it. */
     public double energy;
+    /** Optional user-facing pet name. Used by the AI chat prefix and some UI labels. */
+    public String name;
     /** Selected base pet species (starter choices: dog/cat). */
     public String speciesCode;
     /** Optional mood slot overrides: mood -> assetCode. */

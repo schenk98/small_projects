@@ -44,6 +44,11 @@ export function GameApp({
   } = useGameData(API, authHeaders)
 
   const [devStatsOpen, setDevStatsOpen] = useState(false)
+  const [aiAnswer, setAiAnswer] = useState('')
+  const [aiFallbackUsed, setAiFallbackUsed] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiConversation, setAiConversation] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [aiLoading, setAiLoading] = useState(false)
 
   /**
    * Refresh wrapper with a consistent auth/session policy:
@@ -204,6 +209,41 @@ export function GameApp({
     setMessage('Developer: stats updated.')
   }
 
+  /** Update pet name (saved on backend; used for AI prefix). */
+  const setPetName = async (name: string) => {
+    await apiJson('/api/pet/name', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    })
+    await safeRefresh()
+  }
+
+  /** Main user-facing AI chat (backend calls local-slm-gateway; falls back if down). */
+  const sendAiPrompt = async () => {
+    const msg = aiPrompt.trim()
+    if (!msg) return
+    setAiPrompt('')
+    // Keep local conversation short; the gateway also truncates on its side.
+    const nextConv = [...aiConversation, { role: 'user' as const, content: msg }].slice(-6)
+    setAiConversation(nextConv)
+    try {
+      setAiLoading(true)
+      const raw = await apiJson('/api/ai/chat', { method: 'POST', body: JSON.stringify({ conversation: nextConv, message: msg }) })
+      const data = (raw ?? {}) as Record<string, unknown>
+      const text = typeof data.assistantText === 'string' ? data.assistantText : '…'
+      setAiFallbackUsed(data.fallbackUsed === true)
+      setAiAnswer(text)
+      if (data.fallbackUsed === true && typeof data.fallbackReason === 'string') {
+        setMessage(`AI fallback: ${data.fallbackReason}`)
+      }
+      setAiConversation([...nextConv, { role: 'assistant' as const, content: text }].slice(-6))
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'AI call failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   const consumableShopItems = shopItems.filter((item) => item.type === 'CONSUMABLE' || (item.shopSection || '') === 'CONSUMABLES')
   const cosmeticShopItems = shopItems.filter((item) => item.type === 'COSMETIC' || (item.shopSection || '') === 'COSMETICS')
 
@@ -216,16 +256,55 @@ export function GameApp({
         onOpenDevStats={() => setDevStatsOpen(true)}
       />
 
+      <div className="card" style={{ width: '80%', margin: '12px auto 8px auto' }}>
+        <div style={{ fontSize: 14, opacity: 0.7 }}>
+          {dashboard.pet.name || 'Pet'}
+          {aiLoading ? ' is thinking' : ' says'}
+          {aiLoading ? <span className="thinking-dots" aria-hidden="true">...</span> : null}
+        </div>
+        <div style={{
+          fontSize: 18,
+          fontFamily: aiFallbackUsed ? 'ui-sans-serif, system-ui, sans-serif' : 'ui-serif, Georgia, serif',
+          fontStyle: aiFallbackUsed ? 'italic' : 'normal',
+          opacity: aiFallbackUsed ? 0.8 : 1,
+          lineHeight: 1.35,
+          whiteSpace: 'pre-wrap',
+        }}
+        >
+          {aiLoading ? (aiAnswer || '…') : (aiAnswer || '—')}
+        </div>
+      </div>
+
       <PetStage dashboard={dashboard} visualCatalog={visualCatalog} />
+
+      <div className="card" style={{ width: '80%', margin: '8px auto 12px auto' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            style={{ flex: 1 }}
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder={`Message ${dashboard.pet.name || 'your pet'}…`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                void sendAiPrompt()
+              }
+            }}
+          />
+          <button type="button" onClick={() => void sendAiPrompt()} disabled={aiLoading}>
+            {aiLoading ? 'Thinking…' : 'Send'}
+          </button>
+        </div>
+      </div>
 
       <NavTabs locationPath={locationPath} nav={nav} />
 
       <Routes>
         <Route path="shop" element={<ShopPage consumableShopItems={consumableShopItems} cosmeticShopItems={cosmeticShopItems} onBuy={(c) => void buy(c)} />} />
         <Route path="inventory" element={<InventoryPage inventory={inventory} shopItems={shopItems} onUseItem={(c) => void consumeInventoryItem(c)} />} />
-        <Route path="customize" element={<CustomizePage dashboard={dashboard} visualCatalog={visualCatalog} onSetSpecies={(s) => void setSpecies(s)} onSetMoodAsset={(m, c) => void setMoodAsset(m, c)} onEquipVisualLayers={(bg, fg) => void equipVisualLayers(bg, fg)} />} />
+        <Route path="customize" element={<CustomizePage dashboard={dashboard} visualCatalog={visualCatalog} onSetName={(n) => void setPetName(n)} onSetSpecies={(s) => void setSpecies(s)} onSetMoodAsset={(m, c) => void setMoodAsset(m, c)} onEquipVisualLayers={(bg, fg) => void equipVisualLayers(bg, fg)} />} />
         <Route path="minigames" element={<MinigamesPage apiJson={apiJson} dashboard={dashboard} refresh={safeRefresh} minigames={minigames} rewardPreview={rewardPreview} setMessage={setMessage} />} />
-        <Route path="settings" element={<SettingsPage setTokens={setTokens} />} />
+        <Route path="settings" element={<SettingsPage setTokens={setTokens} dashboard={dashboard} apiJson={apiJson} setMessage={setMessage} />} />
       </Routes>
 
       <DevStatsModal
