@@ -13,7 +13,7 @@ public class PetVisualAsset {
     public String assetType;
     /** dog, cat, ... */
     public String speciesCode;
-    /** For PET_MOOD: happy, sad, hungry, tired, playing_dead. Empty or null for BACKGROUND / FOREGROUND. */
+    /** For PET_MOOD: happy, sad, hungry, tired, thinking, playing_dead. Empty or null for BACKGROUND / FOREGROUND. */
     public String moodCode;
     /** Human-friendly label shown in UI. */
     public String label;

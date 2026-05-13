@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:poe_pet;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+  data:
+    mongodb:
+      uri: mongodb://admin:admin123@localhost:27017/poe_pet_test?authSource=admin
+  mail:
+    host: localhost
+    port: 1025
+
+app:
+  webBaseUrl: http://localhost:5173
+  apiBaseUrl: http://localhost:8080
+  corsAllowedOrigins: http://localhost:5173
+  accessTokenHours: 4
+  refreshTokenDays: 14
+  privilegedEmails:
+  aiGatewayBaseUrl:
+  aiGatewayApiKey:
+  notificationsEnabled: false
+  notificationSoapEnabled: false
+  notificationSoapUrl: http://localhost:8081/ws
+  notificationLowHungerThreshold: 15
+  notificationSweepDelayMs: 900000
+  notificationDailySummarySweepDelayMs: 3600000
+  notificationDailySummaryInitialDelayMs: 120000
+  skipEmailVerification: false
+  bootstrap:
+    minigames:
+      enabled: false
+    petVisuals:
+      enabled: false
+    shop:
+      enabled: false

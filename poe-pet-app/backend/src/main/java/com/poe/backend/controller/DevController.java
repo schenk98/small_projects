@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.poe.backend.security.CurrentUser;
+import com.poe.backend.notification.NotificationAutomationService;
 import com.poe.backend.service.AppService;
 import com.poe.backend.service.AiGatewayClient;
 
@@ -22,10 +23,12 @@ import com.poe.backend.service.AiGatewayClient;
 public class DevController {
     private final AppService appService;
     private final AiGatewayClient ai;
+    private final NotificationAutomationService notificationAutomationService;
 
-    public DevController(AppService appService, AiGatewayClient ai) {
+    public DevController(AppService appService, AiGatewayClient ai, NotificationAutomationService notificationAutomationService) {
         this.appService = appService;
         this.ai = ai;
+        this.notificationAutomationService = notificationAutomationService;
     }
 
     @PostMapping("/grant-coins")
@@ -104,5 +107,23 @@ public class DevController {
         String message = body.get("message") != null ? String.valueOf(body.get("message")) : "";
         String petName = body.get("petName") != null ? String.valueOf(body.get("petName")) : "Pet";
         return ResponseEntity.ok(appService.devAiChatTest(CurrentUser.get(), petName, message));
+    }
+
+    @PostMapping("/notifications/test-low-hunger")
+    /** Trigger a low-hunger notification attempt for the current user (privileged only). */
+    public ResponseEntity<?> testLowHungerNotification() {
+        if (!appService.isPrivileged(CurrentUser.get())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Forbidden"));
+        }
+        return ResponseEntity.ok(notificationAutomationService.sendLowHungerReminder(CurrentUser.get()));
+    }
+
+    @PostMapping("/notifications/test-daily-summary")
+    /** Trigger a daily AI summary notification attempt for the current user (privileged only). */
+    public ResponseEntity<?> testDailySummaryNotification() {
+        if (!appService.isPrivileged(CurrentUser.get())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Forbidden"));
+        }
+        return ResponseEntity.ok(notificationAutomationService.sendDailyAiSummary(CurrentUser.get()));
     }
 }

@@ -1,5 +1,6 @@
-import { MOOD_LABELS, MOOD_SLOT_ORDER, type MoodCode, type PetVisualAsset, type SpeciesCode } from '../../lib/petVisuals'
+import { MOOD_LABELS, MOOD_SLOT_ORDER, SPECIES_LABELS, SPECIES_ORDER, normalizeSpeciesCode, type PetVisualAsset, type SavedMoodCode, type SpeciesCode } from '../../lib/petVisuals'
 import type { Dashboard } from '../../lib/dashboard'
+import { useState } from 'react'
 
 export function CustomizePage({
   dashboard,
@@ -13,35 +14,37 @@ export function CustomizePage({
   visualCatalog: PetVisualAsset[]
   onSetName: (name: string) => void
   onSetSpecies: (next: SpeciesCode) => void
-  onSetMoodAsset: (mood: MoodCode, code: string) => void
+  onSetMoodAsset: (mood: SavedMoodCode, code: string) => void
   onEquipVisualLayers: (backgroundAssetCode: string, foregroundAssetCode: string) => void
 }) {
-  const speciesCode: SpeciesCode = (dashboard.pet.speciesCode === 'cat' ? 'cat' : 'dog')
+  const speciesCode: SpeciesCode = normalizeSpeciesCode(dashboard.pet.speciesCode)
   const ownedVisuals = new Set(dashboard.pet.ownedVisualAssetCodes ?? [])
-  const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<MoodCode, string>>
+  const ownedSpecies = new Set(dashboard.pet.ownedSpeciesCodes ?? ['dog', 'cat'])
+  const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<SavedMoodCode, string>>
   const moodAssetsForSpecies = visualCatalog.filter((a) => a.assetType === 'PET_MOOD' && a.speciesCode === speciesCode)
 
   const equippedBg = dashboard.pet.equippedBackgroundAssetCode || ''
   const equippedFg = dashboard.pet.equippedForegroundAssetCode || ''
+  const ownedSpeciesOrdered = SPECIES_ORDER.filter((s) => ownedSpecies.has(s))
 
   return (
     <div className="card pane">
       <h3>Pet customization</h3>
-      <p className="muted">One species on stage at a time. Pick default or owned mood art; set scene background and foreground (starters and purchased items only).</p>
+      <p className="muted">Dog and Cat are starters. Unlock extra pets in the Shop, then pick default or owned mood art and scene layers here.</p>
 
-      <label className="dev-stat-label" style={{ marginTop: 8 }}>
-        Pet name
-        <input
-          value={dashboard.pet.name || ''}
-          placeholder="Pet"
-          onChange={(e) => onSetName(e.target.value)}
-        />
+      <PetNameEditor key={dashboard.pet.name ?? ''} name={dashboard.pet.name || ''} onSetName={onSetName} />
+
+      <label className="dev-stat-label" style={{ marginTop: 6 }}>
+        Pet species
+        <select
+          value={speciesCode}
+          onChange={(e) => onSetSpecies(normalizeSpeciesCode(e.target.value))}
+        >
+          {ownedSpeciesOrdered.map((s) => (
+            <option key={s} value={s}>{SPECIES_LABELS[s]}</option>
+          ))}
+        </select>
       </label>
-
-      <div className="subnav">
-        <button type="button" className={speciesCode === 'dog' ? 'tab active' : 'tab'} onClick={() => onSetSpecies('dog')}>Dog</button>
-        <button type="button" className={speciesCode === 'cat' ? 'tab active' : 'tab'} onClick={() => onSetSpecies('cat')}>Cat</button>
-      </div>
 
       <h4 style={{ marginTop: '12px' }}>Scene</h4>
       <label className="dev-stat-label">
@@ -88,6 +91,30 @@ export function CustomizePage({
         )
       })}
     </div>
+  )
+}
+
+function PetNameEditor({ name, onSetName }: { name: string; onSetName: (n: string) => void }) {
+  const [draft, setDraft] = useState(name)
+  return (
+    <label className="dev-stat-label" style={{ marginTop: 8 }}>
+      Pet name
+      <input
+        value={draft}
+        placeholder="Pet"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const next = (draft || '').trim()
+          const current = (name || '').trim()
+          if (next !== current) onSetName(next)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+      />
+    </label>
   )
 }
 

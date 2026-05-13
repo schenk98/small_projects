@@ -28,7 +28,7 @@ public class AuthController {
     }
 
     @PostMapping("/auth/register")
-    /** Register a new account and send verification email. */
+    /** Register a new account (verification email unless {@code APP_SKIP_EMAIL_VERIFICATION=true}). */
     public ResponseEntity<?> register(@RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(appService.register(payload.get("email"), payload.get("password")));
     }
@@ -40,7 +40,7 @@ public class AuthController {
     }
 
     @PostMapping("/auth/login")
-    /** Login and receive access+refresh tokens (requires verified email). */
+    /** Login and receive access+refresh tokens. */
     public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(appService.login(payload.get("email"), payload.get("password")));
     }

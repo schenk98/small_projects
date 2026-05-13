@@ -3,7 +3,7 @@ import { Route, Routes, useNavigate } from 'react-router-dom'
 import type { Tokens } from '../auth/AuthScreens'
 import { API_BASE_URL } from '../config'
 import { isSessionExpiredMessage } from '../lib/session'
-import type { MoodCode, SpeciesCode } from '../lib/petVisuals'
+import type { SavedMoodCode, SpeciesCode } from '../lib/petVisuals'
 import { Topbar } from './components/Topbar'
 import { PetStage } from './components/PetStage'
 import { NavTabs } from './components/NavTabs'
@@ -13,7 +13,9 @@ import { ShopPage } from './pages/ShopPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { CustomizePage } from './pages/CustomizePage'
 import { MinigamesPage } from './pages/MinigamesPage'
+import { ProgressPage } from './pages/ProgressPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { usePetAiChat } from './usePetAiChat'
 
 const API = API_BASE_URL
 const DASHBOARD_POLL_MS = 10 * 60 * 1000
@@ -44,11 +46,14 @@ export function GameApp({
   } = useGameData(API, authHeaders)
 
   const [devStatsOpen, setDevStatsOpen] = useState(false)
-  const [aiAnswer, setAiAnswer] = useState('')
-  const [aiFallbackUsed, setAiFallbackUsed] = useState(false)
-  const [aiPrompt, setAiPrompt] = useState('')
-  const [aiConversation, setAiConversation] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [aiLoading, setAiLoading] = useState(false)
+  const {
+    aiAnswer,
+    aiFallbackUsed,
+    aiPrompt,
+    setAiPrompt,
+    aiLoading,
+    sendAiPrompt,
+  } = usePetAiChat(apiJson, dashboard, setMessage)
 
   /**
    * Refresh wrapper with a consistent auth/session policy:
@@ -111,6 +116,7 @@ export function GameApp({
     ['/app/minigames', 'Minigames'],
     ['/app/inventory', 'Inventory'],
     ['/app/customize', 'Customize'],
+    ['/app/progress', 'Progress'],
     ['/app/settings', 'Settings'],
   ]
 
@@ -152,8 +158,8 @@ export function GameApp({
    * Override a specific mood slot with an owned asset.
    * `none` means "use the default starter asset for that mood/species".
    */
-  const setMoodAsset = async (mood: MoodCode, code: string) => {
-    const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<MoodCode, string>>
+  const setMoodAsset = async (mood: SavedMoodCode, code: string) => {
+    const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<SavedMoodCode, string>>
     const next = { ...moodSlots, [mood]: code === 'none' ? undefined : code }
     await apiJson('/api/pet-visuals/mood-assets', {
       method: 'POST',
@@ -218,34 +224,9 @@ export function GameApp({
     await safeRefresh()
   }
 
-  /** Main user-facing AI chat (backend calls local-slm-gateway; falls back if down). */
-  const sendAiPrompt = async () => {
-    const msg = aiPrompt.trim()
-    if (!msg) return
-    setAiPrompt('')
-    // Keep local conversation short; the gateway also truncates on its side.
-    const nextConv = [...aiConversation, { role: 'user' as const, content: msg }].slice(-6)
-    setAiConversation(nextConv)
-    try {
-      setAiLoading(true)
-      const raw = await apiJson('/api/ai/chat', { method: 'POST', body: JSON.stringify({ conversation: nextConv, message: msg }) })
-      const data = (raw ?? {}) as Record<string, unknown>
-      const text = typeof data.assistantText === 'string' ? data.assistantText : '…'
-      setAiFallbackUsed(data.fallbackUsed === true)
-      setAiAnswer(text)
-      if (data.fallbackUsed === true && typeof data.fallbackReason === 'string') {
-        setMessage(`AI fallback: ${data.fallbackReason}`)
-      }
-      setAiConversation([...nextConv, { role: 'assistant' as const, content: text }].slice(-6))
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'AI call failed')
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
   const consumableShopItems = shopItems.filter((item) => item.type === 'CONSUMABLE' || (item.shopSection || '') === 'CONSUMABLES')
   const cosmeticShopItems = shopItems.filter((item) => item.type === 'COSMETIC' || (item.shopSection || '') === 'COSMETICS')
+  const speciesShopItems = shopItems.filter((item) => item.type === 'SPECIES' || (item.shopSection || '') === 'SPECIES')
 
   return (
     <div className="game">
@@ -275,7 +256,7 @@ export function GameApp({
         </div>
       </div>
 
-      <PetStage dashboard={dashboard} visualCatalog={visualCatalog} />
+      <PetStage dashboard={dashboard} visualCatalog={visualCatalog} transientMood={aiLoading ? 'thinking' : undefined} />
 
       <div className="card" style={{ width: '80%', margin: '8px auto 12px auto' }}>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -300,10 +281,11 @@ export function GameApp({
       <NavTabs locationPath={locationPath} nav={nav} />
 
       <Routes>
-        <Route path="shop" element={<ShopPage consumableShopItems={consumableShopItems} cosmeticShopItems={cosmeticShopItems} onBuy={(c) => void buy(c)} />} />
+        <Route path="shop" element={<ShopPage consumableShopItems={consumableShopItems} cosmeticShopItems={cosmeticShopItems} speciesShopItems={speciesShopItems} visualCatalog={visualCatalog} dashboard={dashboard} onBuy={(c) => void buy(c)} />} />
         <Route path="inventory" element={<InventoryPage inventory={inventory} shopItems={shopItems} onUseItem={(c) => void consumeInventoryItem(c)} />} />
         <Route path="customize" element={<CustomizePage dashboard={dashboard} visualCatalog={visualCatalog} onSetName={(n) => void setPetName(n)} onSetSpecies={(s) => void setSpecies(s)} onSetMoodAsset={(m, c) => void setMoodAsset(m, c)} onEquipVisualLayers={(bg, fg) => void equipVisualLayers(bg, fg)} />} />
         <Route path="minigames" element={<MinigamesPage apiJson={apiJson} dashboard={dashboard} refresh={safeRefresh} minigames={minigames} rewardPreview={rewardPreview} setMessage={setMessage} />} />
+        <Route path="progress" element={<ProgressPage apiJson={apiJson} dashboard={dashboard} />} />
         <Route path="settings" element={<SettingsPage setTokens={setTokens} dashboard={dashboard} apiJson={apiJson} setMessage={setMessage} />} />
       </Routes>
 

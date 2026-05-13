@@ -37,12 +37,17 @@ import com.poe.backend.repo.ShopItemRepo;
 import com.poe.backend.repo.UserAccountRepo;
 import com.poe.backend.repo.UserTokenRepo;
 import com.poe.backend.repo.WalletRepo;
-import com.poe.backend.service.AiGatewayClient;
+import com.poe.backend.sql.service.ActivityHistoryService;
+import com.poe.backend.sql.service.NotificationPreferenceService;
 
 @Service
 public class AppService {
     private static final int DEFAULT_SHIFTED_FIBONACCI_CAP = 72;
     private static final int[] DEFAULT_PUZZLE_PREVIEW_SCORES = new int[] { 8, 18, 36, 72 };
+    private static final List<String> STARTER_SPECIES = List.of("dog", "cat");
+    private static final List<String> SUPPORTED_SPECIES = List.of(
+            "dog", "cat", "penguin", "fox", "hamster", "tiger", "lion", "horse", "parrot", "unicorn",
+            "midnight_cat", "panda", "goldfish", "lizard");
     /**
      * Central service containing most game logic.
      *
@@ -62,6 +67,9 @@ public class AppService {
     private final PetVisualAssetRepo petVisualAssetRepo;
     private final JavaMailSender mailSender;
     private final AiGatewayClient aiGatewayClient;
+    private final ActivityHistoryService activityHistoryService;
+    private final NotificationPreferenceService notificationPreferenceService;
+    private final AiChatContextAssembler aiChatContextAssembler;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom random = new SecureRandom();
 
@@ -76,11 +84,26 @@ public class AppService {
     /** Comma-separated developer emails (see application.yml). */
     @Value("${app.privilegedEmails:}")
     private String privilegedEmailsCsv;
+    @Value("${app.aiPersonaAddendum:}")
+    private String aiPersonaAddendum;
+    @Value("${app.aiChatMaxUserMessageChars:1800}")
+    private int aiChatMaxUserMessageChars;
+    @Value("${app.aiChatMaxConversationTurns:6}")
+    private int aiChatMaxConversationTurns;
+    @Value("${app.aiChatMaxAssistantChars:3500}")
+    private int aiChatMaxAssistantChars;
+    @Value("${app.aiChatMaxContextChars:6000}")
+    private int aiChatMaxContextChars;
+    @Value("${app.skipEmailVerification:false}")
+    private boolean skipEmailVerification;
 
     public AppService(UserAccountRepo userAccountRepo, UserTokenRepo userTokenRepo, PetStateRepo petStateRepo,
             WalletRepo walletRepo, ShopItemRepo shopItemRepo, InventoryRepo inventoryRepo,
             MinigameRepo minigameRepo, MinigameSessionRepo minigameSessionRepo, PetVisualAssetRepo petVisualAssetRepo,
-            JavaMailSender mailSender, AiGatewayClient aiGatewayClient) {
+            JavaMailSender mailSender, AiGatewayClient aiGatewayClient,
+            ActivityHistoryService activityHistoryService,
+            NotificationPreferenceService notificationPreferenceService,
+            AiChatContextAssembler aiChatContextAssembler) {
         this.userAccountRepo = userAccountRepo;
         this.userTokenRepo = userTokenRepo;
         this.petStateRepo = petStateRepo;
@@ -92,6 +115,9 @@ public class AppService {
         this.petVisualAssetRepo = petVisualAssetRepo;
         this.mailSender = mailSender;
         this.aiGatewayClient = aiGatewayClient;
+        this.activityHistoryService = activityHistoryService;
+        this.notificationPreferenceService = notificationPreferenceService;
+        this.aiChatContextAssembler = aiChatContextAssembler;
     }
 
     /**
@@ -105,23 +131,21 @@ public class AppService {
             return Map.of("ok", false, "error", "AI gateway not configured (app.aiGatewayBaseUrl)");
         }
         PetState pet = getPet(userId);
-        String species = pet.speciesCode != null && !pet.speciesCode.isBlank() ? pet.speciesCode : "pet";
-        String name = petName != null && !petName.isBlank() ? petName : "Pet";
-        String prefix =
-                "You are cute pet named " + name + " of type " + species + " that can magically speak. "
-                        + "You are " + Math.round(pet.happiness) + "/100 happy, "
-                        + Math.round(pet.hunger) + "/100 fed and you have " + Math.round(pet.energy) + "/100 energy. "
-                        + "Respond on following message impersonating this character (not explicitly stating any of these information) "
-                        + "in language of that message:";
+        String prefix = aiChatContextAssembler.assemble(userId, pet, petName, aiPersonaAddendum, aiChatMaxContextChars);
+
+        String safeMessage = truncateUtf16(message != null ? message : "", aiChatMaxUserMessageChars);
+        if (safeMessage.isBlank()) {
+            return Map.of("ok", false, "error", "message_empty");
+        }
 
         Map<String, Object> payload = Map.of(
                 "userId", userId,
                 "contextPrefix", prefix,
                 "conversation", List.of(),
-                "message", message != null ? message : "");
+                "message", safeMessage);
         try {
             Map<String, Object> res = aiGatewayClient.chat(payload);
-            return Map.of("ok", true, "result", res);
+            return Map.of("ok", true, "result", enforceAssistantLength(res));
         } catch (Exception e) {
             return Map.of("ok", false, "error", "AI gateway error: " + e.getMessage());
         }
@@ -129,7 +153,10 @@ public class AppService {
 
     /**
      * Create a new account and initialize baseline game state.
-     * Also sends a verification email; user cannot log in until verified.
+     * <p>Normal mode: sends verification email; {@link #login} requires {@code emailVerified} until
+     * {@link #verifyEmail} succeeds.</p>
+     * <p>When {@code app.skipEmailVerification} is true (e.g. {@code APP_SKIP_EMAIL_VERIFICATION=true} without SMTP):
+     * sets {@code emailVerified} immediately, skips mail, user can log in at once.</p>
      */
     public Map<String, Object> register(String email, String password) {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
@@ -143,13 +170,19 @@ public class AppService {
         UserAccount user = new UserAccount();
         user.email = normalizedEmail;
         user.passwordHash = passwordEncoder.encode(password);
-        user.emailVerified = false;
+        user.emailVerified = skipEmailVerification;
         user.createdAt = Instant.now();
         user = userAccountRepo.save(user);
 
         initializeUserGameData(user.id);
-        sendVerificationMail(user);
-        return Map.of("message", "Account created. Verify your email.");
+        notificationPreferenceService.ensureDefaults(user.id);
+        recordActivity(user.id, "ACCOUNT_REGISTERED", "auth", getPet(user.id), walletRepo.findByUserId(user.id).orElseThrow(),
+                Map.of("verificationRequired", !skipEmailVerification));
+        if (!skipEmailVerification) {
+            sendVerificationMail(user);
+            return Map.of("message", "Account created. Verify your email.");
+        }
+        return Map.of("message", "Account created. You can log in now.");
     }
 
     /** Mark the user's email as verified, consuming the token. */
@@ -164,17 +197,20 @@ public class AppService {
         return Map.of("message", "Email verified.");
     }
 
-    /** Login: checks password + email verified, then issues access+refresh tokens. */
+    /** Login: checks password (+ email verified unless {@code app.skipEmailVerification}). */
     public Map<String, Object> login(String email, String password) {
         UserAccount user = userAccountRepo.findByEmail(email.trim().toLowerCase(Locale.ROOT))
                 .orElseThrow(() -> new RuntimeException("Invalid credentials."));
-        if (!user.emailVerified) {
+        if (!skipEmailVerification && !user.emailVerified) {
             throw new RuntimeException("Email not verified.");
         }
         if (!passwordEncoder.matches(password, user.passwordHash)) {
             throw new RuntimeException("Invalid credentials.");
         }
-        return issueAuthTokens(user.id, user.email);
+        Map<String, Object> tokens = issueAuthTokens(user.id, user.email);
+        recordActivity(user.id, "USER_LOGGED_IN", "auth", getPet(user.id), walletRepo.findByUserId(user.id).orElseThrow(),
+                Map.of("emailVerified", true));
+        return tokens;
     }
 
     /** Rotate tokens using a valid refresh token. */
@@ -258,6 +294,28 @@ public class AppService {
         return res;
     }
 
+    /**
+     * Lightweight AI integration info for settings and diagnostics (no secrets).
+     * When the gateway is enabled, includes {@code /health} payload when reachable.
+     */
+    public Map<String, Object> getAiChatInfo() {
+        Map<String, Object> m = new HashMap<>();
+        boolean on = aiGatewayClient.isEnabled();
+        m.put("gatewayConfigured", on);
+        m.put("maxUserMessageChars", aiChatMaxUserMessageChars);
+        m.put("maxConversationTurns", aiChatMaxConversationTurns);
+        m.put("maxAssistantChars", aiChatMaxAssistantChars);
+        m.put("maxContextChars", aiChatMaxContextChars);
+        if (on) {
+            try {
+                m.put("gatewayHealth", aiGatewayClient.health());
+            } catch (Exception e) {
+                m.put("gatewayHealth", Map.of("ok", false, "error", e.getMessage()));
+            }
+        }
+        return m;
+    }
+
     /** Ensure older pet documents get a default name. */
     private void migratePetNameIfMissing(PetState pet) {
         if (pet.name == null || pet.name.isBlank()) {
@@ -269,6 +327,7 @@ public class AppService {
     /** Update the current user's pet name. */
     public Map<String, Object> setPetName(String userId, String name) {
         PetState pet = simulate(userId);
+        String previousName = pet.name;
         String n = name != null ? name.trim() : "";
         if (n.isEmpty()) {
             n = "Pet";
@@ -278,6 +337,8 @@ public class AppService {
         }
         pet.name = n;
         petStateRepo.save(pet);
+        recordActivity(userId, "PET_RENAMED", "pet", pet, walletOrNull(userId),
+                Map.of("previousName", previousName == null ? "" : previousName, "newName", n));
         return Map.of("ok", true, "pet", pet);
     }
 
@@ -285,45 +346,179 @@ public class AppService {
     public Map<String, Object> aiChat(String userId, List<Map<String, String>> conversation, String message) {
         PetState pet = getPet(userId);
         String species = pet.speciesCode != null && !pet.speciesCode.isBlank() ? pet.speciesCode : "pet";
-        String name = pet.name != null && !pet.name.isBlank() ? pet.name : "Pet";
-        String prefix =
-                "You are cute pet named " + name + " of type " + species + " that can magically speak. "
-                        + "You are " + Math.round(pet.happiness) + "/100 happy, "
-                        + Math.round(pet.hunger) + "/100 fed and you have " + Math.round(pet.energy) + "/100 energy. "
-                        + "Respond on following message impersonating this character (not explicitly stating any of these information) "
-                        + "in language of that message:";
+        String prefix = aiChatContextAssembler.assemble(userId, pet, null, aiPersonaAddendum, aiChatMaxContextChars);
+
+        String safeMessage = truncateUtf16(message != null ? message : "", aiChatMaxUserMessageChars);
+        if (safeMessage.isBlank()) {
+            Map<String, Object> fallback = Map.of(
+                    "assistantText", "_blinks expectantly_",
+                    "fallbackUsed", true,
+                    "fallbackReason", "empty_message");
+            recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
+                    Map.of("conversationSize", conversation != null ? conversation.size() : 0,
+                            "messageLength", 0,
+                            "fallbackUsed", true,
+                            "fallbackReason", "empty_message"));
+            return fallback;
+        }
+
+        List<Map<String, String>> safeConv = sanitizeConversation(conversation, aiChatMaxConversationTurns, aiChatMaxUserMessageChars);
 
         if (!aiGatewayClient.isEnabled()) {
-            return Map.of(
+            Map<String, Object> fallback = Map.of(
                     "assistantText", fallbackNoisesForSpecies(species),
                     "fallbackUsed", true,
                     "fallbackReason", "gateway_not_configured");
+            recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
+                    Map.of("conversationSize", safeConv.size(),
+                            "messageLength", safeMessage.length(),
+                            "fallbackUsed", true,
+                            "fallbackReason", "gateway_not_configured"));
+            return fallback;
         }
 
         Map<String, Object> payload = Map.of(
                 "userId", userId,
                 "contextPrefix", prefix,
-                "conversation", conversation != null ? conversation : List.of(),
-                "message", message != null ? message : "");
+                "conversation", safeConv,
+                "message", safeMessage);
         try {
-            Map<String, Object> res = aiGatewayClient.chat(payload);
+            Map<String, Object> res = enforceAssistantLength(aiGatewayClient.chat(payload));
             // Ensure callers always get a consistent shape.
             if (res.get("assistantText") instanceof String) {
+                recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
+                        Map.of("conversationSize", safeConv.size(),
+                                "messageLength", safeMessage.length(),
+                                "fallbackUsed", false));
                 return res;
             }
-            return Map.of("assistantText", String.valueOf(res), "fallbackUsed", false);
+            Map<String, Object> normalized = Map.of("assistantText", String.valueOf(res), "fallbackUsed", false);
+            recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
+                    Map.of("conversationSize", safeConv.size(),
+                            "messageLength", safeMessage.length(),
+                            "fallbackUsed", false));
+            return normalized;
         } catch (Exception e) {
-            return Map.of(
+            Map<String, Object> fallback = Map.of(
                     "assistantText", fallbackNoisesForSpecies(species),
                     "fallbackUsed", true,
                     "fallbackReason", "gateway_error");
+            recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
+                    Map.of("conversationSize", safeConv.size(),
+                            "messageLength", safeMessage.length(),
+                            "fallbackUsed", true,
+                            "fallbackReason", "gateway_error"));
+            return fallback;
         }
+    }
+
+    private static String truncateUtf16(String s, int maxChars) {
+        if (s == null || maxChars <= 0) {
+            return "";
+        }
+        if (s.length() <= maxChars) {
+            return s;
+        }
+        if (maxChars == 1) {
+            return "…";
+        }
+        return s.substring(0, maxChars - 1) + "…";
+    }
+
+    private List<Map<String, String>> sanitizeConversation(List<Map<String, String>> conversation, int maxTurns, int maxCharsPerTurn) {
+        if (conversation == null || conversation.isEmpty() || maxTurns <= 0) {
+            return List.of();
+        }
+        int from = Math.max(0, conversation.size() - maxTurns);
+        List<Map<String, String>> out = new ArrayList<>();
+        for (int i = from; i < conversation.size(); i++) {
+            Map<String, String> row = conversation.get(i);
+            if (row == null) {
+                continue;
+            }
+            String role = row.get("role");
+            String content = row.get("content");
+            if (role == null || (!role.equals("user") && !role.equals("assistant"))) {
+                continue;
+            }
+            String safeContent = truncateUtf16(content != null ? content : "", maxCharsPerTurn);
+            if (safeContent.isBlank()) {
+                continue;
+            }
+            out.add(Map.of("role", role, "content", safeContent));
+        }
+        return out;
+    }
+
+    private Map<String, Object> enforceAssistantLength(Map<String, Object> res) {
+        if (res == null) {
+            return Map.of("assistantText", "", "fallbackUsed", false);
+        }
+        Object at = res.get("assistantText");
+        if (!(at instanceof String)) {
+            return res;
+        }
+        String s = (String) at;
+        if (s.length() <= aiChatMaxAssistantChars) {
+            return res;
+        }
+        Map<String, Object> copy = new HashMap<>(res);
+        copy.put("assistantText", truncateUtf16(s, aiChatMaxAssistantChars));
+        return copy;
     }
 
     private String fallbackNoisesForSpecies(String speciesCode) {
         String s = speciesCode != null ? speciesCode.trim().toLowerCase(Locale.ROOT) : "";
         if (s.equals("cat")) {
             String[] options = new String[] { "*meows softly*", "*purrs*", "*mrrp?*", "*makes a curious cat noise*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("penguin")) {
+            String[] options = new String[] { "*chirps thoughtfully*", "*waddles closer*", "*makes a tiny penguin peep*", "*flaps flippers softly*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("fox")) {
+            String[] options = new String[] { "*yips cheekily*", "*swishes a fluffy tail*", "*gives a tiny fox giggle*", "*makes a playful fox sound*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("hamster")) {
+            String[] options = new String[] { "*squeaks with full cheeks*", "*nibbles happily*", "*makes a tiny hamster peep*", "*wiggles its whiskers*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("tiger")) {
+            String[] options = new String[] { "*makes a tiny tiger chuff*", "*swishes a striped tail*", "*practices a baby roar*", "*pads closer with cub paws*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("lion")) {
+            String[] options = new String[] { "*gives a soft cub roar*", "*flicks a tufted tail*", "*puffs up its little mane*", "*nuzzles proudly*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("horse")) {
+            String[] options = new String[] { "*nickers softly*", "*prances in place*", "*flicks a fluffy tail*", "*makes a tiny foal whinny*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("parrot")) {
+            String[] options = new String[] { "*chirps brightly*", "*fluffs colorful feathers*", "*squawks hello softly*", "*tilts a curious beak*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("unicorn")) {
+            String[] options = new String[] { "*whinnies with sparkles*", "*taps golden hooves*", "*shakes a pastel mane*", "*makes a tiny magical neigh*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("midnight_cat")) {
+            String[] options = new String[] { "*purrs like distant stars*", "*swishes a galaxy tail*", "*mrrps mysteriously*", "*sparkles with midnight fur*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("panda")) {
+            String[] options = new String[] { "*blinks cluelessly*", "*hugs a bamboo snack*", "*makes a tiny panda huff*", "*rolls around happily*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("goldfish")) {
+            String[] options = new String[] { "*blubs happily*", "*swishes golden fins*", "*makes tiny aquarium bubbles*", "*circles the bowl cheerfully*" };
+            return options[(int) (Math.random() * options.length)];
+        }
+        if (s.equals("lizard")) {
+            String[] options = new String[] { "*blinks with tiny lizard eyes*", "*curls a green tail*", "*makes a soft reptile chirp*", "*scampers closer on tiny toes*" };
             return options[(int) (Math.random() * options.length)];
         }
         // default: dog-ish
@@ -491,6 +686,7 @@ public class AppService {
      * Supported types:
      * - CONSUMABLE: increases inventory quantity
      * - COSMETIC: grants a visual asset code into {@code PetState.ownedVisualAssetCodes}
+     * - SPECIES: grants a selectable pet species into {@code PetState.ownedSpeciesCodes}
      */
     public Map<String, Object> purchase(String userId, String itemCode) {
         ShopItem item = shopItemRepo.findByCodeAndActiveTrue(itemCode)
@@ -515,6 +711,8 @@ public class AppService {
             });
             inv.quantity += 1;
             inventoryRepo.save(inv);
+            recordActivity(userId, "SHOP_PURCHASED", "shop", getPet(userId), wallet,
+                    Map.of("itemCode", item.code, "itemType", item.type, "priceCoins", item.priceCoins));
             return Map.of("ok", true);
         }
 
@@ -534,7 +732,30 @@ public class AppService {
             walletRepo.save(wallet);
             pet.ownedVisualAssetCodes.add(visualCode);
             petStateRepo.save(pet);
+            recordActivity(userId, "SHOP_PURCHASED", "shop", pet, wallet,
+                    Map.of("itemCode", item.code, "itemType", item.type, "priceCoins", item.priceCoins,
+                            "grantedVisualAssetCode", visualCode));
             return Map.of("ok", true, "grantedVisualAssetCode", visualCode);
+        }
+
+        if ("SPECIES".equals(item.type)) {
+            String grantedSpecies = normalizeSpeciesCode(extractGrantSpeciesCode(item));
+            if (!SUPPORTED_SPECIES.contains(grantedSpecies) || STARTER_SPECIES.contains(grantedSpecies)) {
+                throw new RuntimeException("Species item missing valid GRANT_SPECIES effect");
+            }
+            PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+            migratePetVisualFields(pet);
+            if (pet.ownedSpeciesCodes.contains(grantedSpecies)) {
+                throw new RuntimeException("Already owned");
+            }
+            wallet.coins -= item.priceCoins;
+            walletRepo.save(wallet);
+            pet.ownedSpeciesCodes.add(grantedSpecies);
+            petStateRepo.save(pet);
+            recordActivity(userId, "SHOP_PURCHASED", "shop", pet, wallet,
+                    Map.of("itemCode", item.code, "itemType", item.type, "priceCoins", item.priceCoins,
+                            "grantedSpeciesCode", grantedSpecies));
+            return Map.of("ok", true, "grantedSpeciesCode", grantedSpecies);
         }
 
         throw new RuntimeException("Unsupported shop item type: " + item.type);
@@ -567,18 +788,25 @@ public class AppService {
     }
 
     /**
-     * Set the base pet species (currently dog/cat).
+     * Set the base pet species. Dog/cat are starter choices; every other species must be unlocked in the shop first.
      *
      * Species controls which mood assets can be equipped.
      */
     public Map<String, Object> setSpecies(String userId, String speciesCode) {
-        String normalized = speciesCode == null ? "" : speciesCode.trim().toLowerCase(Locale.ROOT);
-        if (!"dog".equals(normalized) && !"cat".equals(normalized)) {
-            throw new RuntimeException("Species must be dog or cat");
+        String normalized = normalizeSpeciesCode(speciesCode);
+        if (!SUPPORTED_SPECIES.contains(normalized)) {
+            throw new RuntimeException("Unsupported species");
         }
         PetState pet = petStateRepo.findByUserId(userId).orElseThrow();
+        migratePetVisualFields(pet);
+        if (!pet.ownedSpeciesCodes.contains(normalized)) {
+            throw new RuntimeException("Species not owned");
+        }
+        String previousSpecies = pet.speciesCode;
         pet.speciesCode = normalized;
         petStateRepo.save(pet);
+        recordActivity(userId, "PET_SPECIES_SET", "pet", pet, walletOrNull(userId),
+                Map.of("previousSpeciesCode", previousSpecies == null ? "" : previousSpecies, "speciesCode", normalized));
         return Map.of("ok", true, "speciesCode", normalized);
     }
 
@@ -692,6 +920,9 @@ public class AppService {
                     existing.expiresAt = Instant.now().plus(Duration.ofHours(extractDurationHours(item.effects)));
                     petStateRepo.save(pet);
                     consumeItem(inv);
+                    recordActivity(userId, "CONSUMABLE_USED", "inventory", pet, walletOrNull(userId),
+                            Map.of("itemCode", item.code, "effectKey", item.effectKey == null ? "" : item.effectKey,
+                                    "result", "timer_reset"));
                     return Map.of("ok", true, "message", "Effect timer reset.");
                 }
                 if (!confirmOverwrite) {
@@ -705,6 +936,9 @@ public class AppService {
                 applyNonTimedEffects(pet, item.effects);
                 petStateRepo.save(pet);
                 consumeItem(inv);
+                recordActivity(userId, "CONSUMABLE_USED", "inventory", pet, walletOrNull(userId),
+                        Map.of("itemCode", item.code, "effectKey", item.effectKey == null ? "" : item.effectKey,
+                                "result", "effect_overwritten"));
                 return Map.of("ok", true, "message", "Effect overwritten.");
             }
         }
@@ -712,6 +946,9 @@ public class AppService {
         applyEffects(pet, item.effects, item.effectKey);
         petStateRepo.save(pet);
         consumeItem(inv);
+        recordActivity(userId, "CONSUMABLE_USED", "inventory", pet, walletOrNull(userId),
+                Map.of("itemCode", item.code, "effectKey", item.effectKey == null ? "" : item.effectKey,
+                        "result", "applied"));
         return Map.of("ok", true);
     }
 
@@ -832,6 +1069,12 @@ public class AppService {
 
         pet.happiness = clamp(pet.happiness + (pet.happiness * happinessDeltaPercent / 100.0));
         petStateRepo.save(pet);
+        recordActivity(userId, "MINIGAME_FINISHED", "minigame", pet, wallet,
+                Map.of("gameCode", gameCode, "score", score, "coinsReward", reward,
+                        "coinsBaseBeforeMultiplier", baseReward, "coinMultiplierApplied", round2(mult),
+                        "happinessDeltaPercent", happinessDeltaPercent,
+                        "connectDifficulty", connectDifficulty == null ? "" : connectDifficulty,
+                        "connectHumanMoves", connectHumanMoves == null ? 0 : connectHumanMoves));
         return Map.of("ok", true, "coinsReward", reward, "happinessDeltaPercent", happinessDeltaPercent, "coinsBaseBeforeMultiplier", baseReward,
                 "coinMultiplierApplied", round2(mult));
     }
@@ -900,6 +1143,10 @@ public class AppService {
         petStateRepo.save(pet);
         session.active = false;
         minigameSessionRepo.save(session);
+        recordActivity(userId, "MINIGAME_FINISHED", "higher_lower", pet, wallet,
+                Map.of("gameCode", "higher_lower", "streak", streak, "previous", previous, "next", next,
+                        "coinsReward", reward, "coinsBaseBeforeMultiplier", baseReward,
+                        "coinMultiplierApplied", round2(mult), "happinessDeltaPercent", happinessDeltaPercent));
         return Map.of("correct", false, "previous", previous, "next", next, "streak", streak, "gameOver", true,
                 "coinsReward", reward, "happinessDeltaPercent", happinessDeltaPercent,
                 "coinsBaseBeforeMultiplier", baseReward, "coinMultiplierApplied", round2(mult));
@@ -960,7 +1207,6 @@ public class AppService {
      * We support reading those samples from the DB (rewardStrategy.previewScores), but keep a small default list
      * for older rows.
      */
-    @SuppressWarnings("unchecked")
     private int[] previewScoresOrDefault(MinigameConfig game, int[] fallback) {
         if (game == null || game.rewardStrategy == null) {
             return fallback;
@@ -994,7 +1240,6 @@ public class AppService {
     /**
      * Base coins from DB rules only (coin consumable multiplier applied by callers).
      */
-    @SuppressWarnings("unchecked")
     private int calculateSimpleRewardBase(MinigameConfig game, int score) {
         if (game.rewardStrategy == null) {
             return Math.max(0, score);
@@ -1175,6 +1420,26 @@ public class AppService {
         return null;
     }
 
+    /** Read species shop effect payload and return the granted species code, if present. */
+    private String extractGrantSpeciesCode(ShopItem item) {
+        if (item.effects == null) {
+            return null;
+        }
+        for (Map<String, Object> effect : item.effects) {
+            if ("GRANT_SPECIES".equals(String.valueOf(effect.get("kind")))) {
+                Object c = effect.get("speciesCode");
+                if (c != null) {
+                    return String.valueOf(c).trim();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String normalizeSpeciesCode(String speciesCode) {
+        return speciesCode == null ? "" : speciesCode.trim().toLowerCase(Locale.ROOT);
+    }
+
     /** Migrate legacy mood key and ensure new lists exist; persists when changed. */
     private void migratePetVisualFields(PetState pet) {
         boolean changed = false;
@@ -1187,6 +1452,24 @@ public class AppService {
         }
         if (pet.ownedVisualAssetCodes == null) {
             pet.ownedVisualAssetCodes = new ArrayList<>();
+            changed = true;
+        }
+        if (pet.ownedSpeciesCodes == null) {
+            pet.ownedSpeciesCodes = new ArrayList<>();
+            changed = true;
+        }
+        for (String starterSpecies : STARTER_SPECIES) {
+            if (!pet.ownedSpeciesCodes.contains(starterSpecies)) {
+                pet.ownedSpeciesCodes.add(starterSpecies);
+                changed = true;
+            }
+        }
+        if (pet.speciesCode == null || pet.speciesCode.isBlank()) {
+            pet.speciesCode = "dog";
+            changed = true;
+        }
+        if (!pet.ownedSpeciesCodes.contains(pet.speciesCode) && SUPPORTED_SPECIES.contains(pet.speciesCode)) {
+            pet.ownedSpeciesCodes.add(pet.speciesCode);
             changed = true;
         }
         if (changed) {
@@ -1253,7 +1536,9 @@ public class AppService {
         pet.hunger = 100;
         pet.happiness = 100;
         pet.energy = 100;
+        pet.name = "Pet";
         pet.speciesCode = "dog";
+        pet.ownedSpeciesCodes = new ArrayList<>(STARTER_SPECIES);
         pet.moodAssetCodes = new HashMap<>();
         pet.ownedVisualAssetCodes = new ArrayList<>();
         pet.equippedBackgroundAssetCode = null;
@@ -1280,6 +1565,16 @@ public class AppService {
         res.put("refreshToken", refresh.token);
         res.put("email", email);
         return res;
+    }
+
+    /** Forward a domain action into the SQL activity history stream. */
+    private void recordActivity(String userId, String eventType, String source, PetState pet, Wallet wallet, Map<String, Object> metadata) {
+        activityHistoryService.record(userId, eventType, source, pet, wallet, metadata);
+    }
+
+    /** Wallet lookup helper used only for optional activity snapshots. */
+    private Wallet walletOrNull(String userId) {
+        return walletRepo.findByUserId(userId).orElse(null);
     }
 
     /**

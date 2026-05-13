@@ -51,6 +51,11 @@ local-slm-gateway/gateway.env
 local-slm-gateway/gateway.env.*
 !local-slm-gateway/gateway.env.example
 
+# SSH private keys (EC2 etc.) — never commit (*.pem covers e.g. poe-pet-app/pet_app_keypair.pem)
+*.pem
+
+# Poe pet — AWS walkthrough .md guides (local-only copy; pet.aws.env.example is not .md and stays trackable)
+poe-pet-app/documentation/aws/*.md
 # --- Logs & temp ---
 logs/
 *.log

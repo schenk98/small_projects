@@ -1,6 +1,19 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: ${SQL_DATABASE_URL:jdbc:postgresql://localhost:5432/poe_pet}
+    username: ${SQL_DATABASE_USERNAME:poe_pet}
+    password: ${SQL_DATABASE_PASSWORD:poe_pet}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
   security:
     user:
       # Setting an explicit user removes the noisy "generated password" dev warning.
@@ -38,6 +51,27 @@ app:
   # This is dev-oriented and may be overridden at runtime via privileged /api/dev/ai/config.
   aiGatewayBaseUrl: ${APP_AI_GATEWAY_BASE_URL:}
   aiGatewayApiKey: ${APP_AI_GATEWAY_API_KEY:}
+  aiGatewayConnectTimeoutSeconds: ${APP_AI_GATEWAY_CONNECT_TIMEOUT_SECONDS:10}
+  # Extra system-style instructions appended to the pet context prefix (keeps replies short and in-character).
+  aiPersonaAddendum: "${APP_AI_PERSONA_ADDENDUM:Persona rules: answer in 1-3 short sentences as the pet. Playful and curious. Do not mention being an AI or a language model. No URLs or code blocks.}"
+  aiChatMaxUserMessageChars: ${APP_AI_CHAT_MAX_USER_MESSAGE_CHARS:1800}
+  aiChatMaxConversationTurns: ${APP_AI_CHAT_MAX_CONVERSATION_TURNS:6}
+  aiChatMaxAssistantChars: ${APP_AI_CHAT_MAX_ASSISTANT_CHARS:3500}
+  # System-style context block (daily challenges, activity, shop consumables, minigames) sent as contextPrefix.
+  aiChatMaxContextChars: ${APP_AI_CHAT_MAX_CONTEXT_CHARS:6000}
+
+  # Notification automation and SOAP side-service.
+  notificationsEnabled: ${APP_NOTIFICATIONS_ENABLED:false}
+  notificationSoapEnabled: ${APP_NOTIFICATION_SOAP_ENABLED:false}
+  notificationSoapUrl: ${APP_NOTIFICATION_SOAP_URL:http://localhost:8081/ws}
+  notificationLowHungerThreshold: ${APP_NOTIFICATION_LOW_HUNGER_THRESHOLD:15}
+  notificationSweepDelayMs: ${APP_NOTIFICATION_SWEEP_DELAY_MS:900000}
+  notificationDailySummarySweepDelayMs: ${APP_NOTIFICATION_DAILY_SUMMARY_SWEEP_DELAY_MS:3600000}
+  notificationDailySummaryInitialDelayMs: ${APP_NOTIFICATION_DAILY_SUMMARY_INITIAL_DELAY_MS:120000}
+
+  # When true: new accounts are emailVerified immediately; no verification email; login does not require verified.
+  # Use APP_SKIP_EMAIL_VERIFICATION=true for alpha without SMTP. Keep false for production.
+  skipEmailVerification: ${APP_SKIP_EMAIL_VERIFICATION:false}
 
 server:
   port: 8080

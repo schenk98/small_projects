@@ -44,8 +44,9 @@ Default mood slots:
 - `hungry`
 - `tired`
 - `playing_dead` (UI: *Playing dead* — e.g. laying down with X eyes; shown when `hunger <= 0`)
+- `thinking` (transient UI-only mood used while the AI pet chat request is in flight; based on the happy art as the visual reference point)
 
-For each starter species, there is one default starter image per mood (10 total mood PNGs). Additional purchasable `PET_MOOD` rows can be added later for extra expressions per species.
+For each starter species, there is one default starter image per gameplay mood plus a transient `thinking` starter visual for AI chat. Additional purchasable `PET_MOOD` rows can be added later for extra expressions per species.
 
 ### 2.3 Mood thresholds (agreed profile)
 
@@ -77,7 +78,8 @@ Fields:
 - `energy`
 - `lastSimulationAt`
 - `activeEffects[]`
-- `speciesCode` (`dog` | `cat`)
+- `speciesCode` (`dog` | `cat` | `penguin` | `fox` | `hamster` | `tiger` | `lion` | `horse` | `parrot` | `unicorn` | `midnight_cat` | `panda` | `goldfish` | `lizard`)
+- `ownedSpeciesCodes` (selectable species unlocked for this user; new users start with `dog` and `cat`)
 - `moodAssetCodes` (map: mood -> assetCode)
 - `ownedVisualAssetCodes` (string[] — unlocked cosmetic / alternate mood `pet_visual_assets.code` values)
 - `equippedBackgroundAssetCode` (nullable)
@@ -89,16 +91,26 @@ Collection for visual catalog entries.
 Fields:
 - `code` (unique asset code)
 - `assetType`: `PET_MOOD` | `BACKGROUND` | `FOREGROUND`
-- `speciesCode`: `dog` | `cat` for mood rows; `all` for scene layers
-- `moodCode`: for `PET_MOOD`: `happy` / `sad` / `hungry` / `tired` / `playing_dead`; otherwise `""` for scene assets
+- `speciesCode`: `dog` | `cat` | `penguin` | `fox` | `hamster` | `tiger` | `lion` | `horse` | `parrot` | `unicorn` | `midnight_cat` | `panda` | `goldfish` | `lizard` for mood rows; `all` for scene layers
+- `moodCode`: for `PET_MOOD`: `happy` / `sad` / `hungry` / `tired` / `thinking` / `playing_dead`; otherwise `""` for scene assets
 - `label`
-- `imagePath` (frontend public path; starter mood assets are **PNG** raster files)
+- `imagePath` (frontend public path; starter mood assets are **PNG** raster files, including the transient `thinking` visuals generated from the happy art style)
 - `starter` (bool)
 - `active` (bool)
 
 ### 3.3 `shop_items`
 - `CONSUMABLE` — food/boosts; increments `inventory_items` on purchase
 - `COSMETIC` — one-time purchase; `effects` contains `{ kind: "GRANT_VISUAL", visualAssetCode: "<pet_visual_assets.code>" }`; grants into `pets.ownedVisualAssetCodes` (no consumable inventory row)
+- `SPECIES` — one-time pet unlock; `effects` contains `{ kind: "GRANT_SPECIES", speciesCode: "<species>" }`; grants into `pets.ownedSpeciesCodes`
+
+### 3.4 Email delivery (current)
+
+Two SMTP paths:
+
+1. **Auth mail** (verification link on register, password reset): the **main backend** uses Spring `JavaMailSender` (`sendMail` in `AppService`) to the configured SMTP host. In local dev this is typically **MailHog** (`spring.mail.*` in `application.yml`).
+2. **Gameplay notification mail** (low-hunger reminder, daily AI summary): the main backend calls **`NotificationSoapClient`** → **`notification-soap-service`** (SOAP) → that service sends mail with its own `JavaMailSender` to the same style of SMTP/MailHog endpoint.
+
+E2E check: `tests/e2e/api-smoke.ps1` asserts the verification message reaches MailHog (`8025`); Playwright `frontend/e2e/smoke.spec.ts` repeats the verify path and opens Shop + Chat; optional `frontend/e2e/mail-soap.spec.ts` can assert SOAP-sent low-hunger mail when run with env vars (see `documentation/testing/TEST_STRATEGY.md`).
 
 ## 4) API (Current)
 
@@ -110,6 +122,8 @@ Fields:
 - `POST /api/pet-visuals/species` with `{ speciesCode }`
 - `POST /api/pet-visuals/mood-assets` with `{ moodAssetCodes }` — non-starter mood assets require ownership
 - `POST /api/pet-visuals/equip-layers` with `{ backgroundAssetCode, foregroundAssetCode }` — use `"none"` to clear a slot
+
+- `GET /api/ai/info` — gateway configured flag, optional `gatewayHealth` (when enabled), and public guardrail sizes (max message / turns / assistant chars)
 
 ### Error response + status convention (Current)
 
@@ -133,24 +147,23 @@ HTTP status codes:
 We keep React code modular and easy to learn:
 - `frontend/src/App.tsx`: auth + routing shell
 - `frontend/src/game/GameApp.tsx`: game shell (topbar + pet stage + tabs) and page routing
-- `frontend/src/game/pages/*`: one file per tab/page (`ShopPage`, `CustomizePage`, etc.)
+- `frontend/src/game/pages/*`: one file per tab/page (`ShopPage`, `CustomizePage`, `ChatPage`, etc.)
 - `frontend/src/game/pages/minigames/*`: minigames are split by area (modal shell, result sheet, and per-minigame hooks/components)
 
 Rule: avoid “god components”; prefer files/functions under ~250 lines unless truly unavoidable.
 
-### 5.2 Center pet (layered stage)
+### 5.3 Center pet (layered stage)
 - Background: `equippedBackgroundAssetCode` → image from catalog (`BACKGROUND`), or default CSS gradient when unset.
 - Pet: current species + derived mood PNG (`PET_MOOD`), alpha-friendly.
 - Foreground: optional `equippedForegroundAssetCode` (`FOREGROUND`), drawn above the pet.
 
 `Customize` tab:
-- species (`dog` / `cat`)
+- species: **starters** are `dog` and `cat`; additional species are unlocked via **Shop → Pets** (`SPECIES` items) into `ownedSpeciesCodes`. Tabs for locked species are disabled until purchased.
 - scene: background + foreground selects (starter or owned only)
 - mood slots: `happy` / `sad` / `hungry` / `tired` / `playing_dead` — options limited to **starter + owned** assets for that mood/species
 
 **Pet mood PNGs:**  
-- `frontend/public/pet-assets/dog/*.png`  
-- `frontend/public/pet-assets/cat/*.png`  
+- `frontend/public/pet-assets/<species-folder>/*.png` (e.g. `dog/`, `cat/`, `penguin/`, `goldfish/`, `lizard/`, `midnight-cat/` for `midnight_cat`, …)  
 
 **Scene cosmetics (SVG or raster paths in catalog):**  
 - Backgrounds: `frontend/public/cosmetic-staging/backgrounds/*.svg`  
@@ -163,7 +176,7 @@ Rule: avoid “god components”; prefer files/functions under ~250 lines unless
   - consumables
   - minigames
   - `pet_visual_assets` (starter moods + backgrounds + foregrounds)
-  - `shop_items` cosmetics
+  - `shop_items`: `COSMETIC` scene unlocks, **`SPECIES` pet unlocks** (1000 coins standard, 3000 for legendary pets)
 
 **Existing MongoDB:** re-run `mongodb/init/01-seed.js` for a clean catalog, or run `mongodb/scripts/migrate-playing-dead-and-cosmetics.js` then merge in new shop/visual rows manually.
 
@@ -186,19 +199,18 @@ Rule: avoid “god components”; prefer files/functions under ~250 lines unless
 
 ### 7.4 AI Pet (planned) — conversational personality + locally-run model on AWS
 
+**Current MVP (local):** a **Chat** tab talks to `POST /api/ai/chat` (backend → optional Local SLM Gateway). **Settings** loads `GET /api/ai/info` (gateway configured flag, health/model hint when reachable, server guardrail sizes). Persona fine-tuning uses `app.aiPersonaAddendum` / `APP_AI_PERSONA_ADDENDUM` appended to the stats prefix. User message length, conversation turns, and assistant reply length are capped server-side.
+
 Goal: turn the pet into a character that can “talk” in a consistent voice, driven by an AI model that runs under the owner's credentials.
 
 Hard constraint: **cost is the #1 priority**. “Stupid and slow but cheap” is preferred over “fast and expensive”.
 
 #### 7.4.1 UX spec (frontend)
-- Add a **chat panel** (prompt textbox + send button + answer area styled like a conversation).
+- **Implemented:** a **Chat** tab (prompt, send, rolling thread, clear). The center stage still shows the pet; a “thinking” mood applies while a reply is loading.
 - AI responses must be written **in the pet’s voice** (personality, tone, quirks).
-- The prompt/response UI is part of the main game experience (exact placement TBD):
-  - option A: new tab (e.g. “Chat”)
-  - option B: panel under the center pet stage
-- Session behavior (TBD):
-  - short rolling context (last N turns)
-  - optional “reset conversation” button
+- Session behavior:
+  - short rolling context (last ~6 turns) on client and server-side turn cap
+  - **Clear thread** button on Chat tab resets local history
 
 #### 7.4.2 AI integration contract (between pet app and AI service)
 
@@ -328,15 +340,13 @@ Reliability:
 Dev workflow:
 - Local dev: do we run a tiny model locally, or stub the AI service?
 
-### 7.5 SQL achievements + history + deployment + SOAP notifications (planned)
+### 7.5 SQL achievements + history + deployment + SOAP notifications (mostly implemented; AWS deploy pending)
 
-This is the next major learning track after the current PoC:
-- add a relational data store for richer history / achievements / analytics
-- containerize the full app stack for reproducible local/prod environments
-- deploy the stack to AWS
-- add a small side-service that exposes a SOAP API for notifications
+**Implemented in-repo:** PostgreSQL activity history, achievements, notification preferences, daily challenges, notification delivery records, `notification-soap-service`, and a single Compose stack for the main app (see `docker-compose.yml`).
 
-This section is intentionally more architectural than the AI section above: it defines the direction and the integration steps, not final implementation details.
+**Still open for “MVP + deploy”:** **`ROADMAP.md`** — only **AWS (EC2)** is in the committed “Next” path; extra moods/cosmetics and formal production model docs sit in **Backlog** there. **Final roadmap item:** cheap **AWS** deploy — nothing is listed after that.
+
+This section stays as the architectural narrative; subsections below mix historical “planned” wording with **current** notes where behavior already shipped.
 
 #### 7.5.1 Goals
 
@@ -399,9 +409,11 @@ Initial data model direction:
   - achievement code, title, description, category, active flag
 - `user_achievement`
   - unlocked achievements, unlock time, progress fields if needed
+- `daily_challenge_definition`
+  - shared generated challenges for one backend-local day
+- `user_daily_challenge_progress`
+  - per-user progress, completion timestamps, reward-granted state
 - optional later:
-  - `challenge_definition`
-  - `user_challenge_progress`
   - `leaderboard_snapshot`
 
 Analytics intention:
@@ -410,7 +422,52 @@ Analytics intention:
 
 Achievement rollout direction:
 - start with **permanent achievements only**
-- add **daily challenges later** after the base achievement/history system is stable
+- once the event/history foundation is stable, extend it with lightweight daily challenges
+
+Current implementation status:
+- PostgreSQL is now wired into the backend as the first SQL subsystem.
+- Flyway creates:
+  - `activity_events`
+  - `achievement_definitions`
+  - `user_achievements`
+  - `daily_challenge_definitions`
+  - `user_daily_challenge_progress`
+  - `notification_preferences`
+  - `notification_deliveries`
+- Starter permanent achievement definitions are seeded in the initial migration.
+- The backend now records activity events for:
+  - account registration
+  - login
+  - pet rename
+  - species change
+  - shop purchase
+  - consumable usage
+  - minigame completion
+  - AI chat usage
+- Achievement progress is now advanced from the SQL-backed event stream for matching event types.
+- Notification preferences get a default SQL row on registration so the later SOAP/email phase has a stable anchor point.
+- A first player-facing progress screen now reads that data back and shows:
+  - daily challenges with per-user progress and reward state
+  - permanent achievement progress
+  - recent activity history / journal-style feed
+- Shared daily challenges are now generated lazily from a small template pool:
+  - same 3 challenges for all users for one backend-local day
+  - currently mixes minigame-finish goals and low-cost consumable-use goals
+  - rewards are granted automatically on first completion
+- The app now exposes first-version notification preference APIs/UI for:
+  - low-hunger reminder toggle
+  - daily AI summary toggle
+- Notification delivery attempts are now recorded in SQL with dedupe keys so scheduled sends do not spam users.
+- The main backend now contains the first notification automation rules:
+  - low-hunger reminder once per user per UTC day when hunger drops below the configured threshold
+  - daily AI summary once per user per UTC day
+- A standalone `notification-soap-service` now exists as the bounded SOAP side-service for real email delivery.
+- The main backend now calls that SOAP service and developer-only endpoints can trigger both first-version notification types manually.
+
+Implementation note:
+- MongoDB still owns the live gameplay state.
+- SQL is currently additive and focused on history/progression data.
+- Activity history writes are best-effort so this new subsystem does not destabilize the existing gameplay flow while the MVP track is being built out.
 
 #### 7.5.4 Phase 2 — Full stack containerization
 
@@ -429,12 +486,18 @@ Current preference:
 - use **one main Compose-based stack** for the main app if possible
 - keep the AI gateway/container separate because it is its own side project
 
-Planned steps:
-1. Add Dockerfiles for frontend and backend.
-2. Extend Compose so the full app stack can run consistently in containers.
-3. Separate dev-only tooling from deployable services (profiles or separate compose files).
-4. Move runtime config to env vars / secrets rather than local assumptions.
-5. Document startup, health checks, seed flow, and troubleshooting.
+Current implementation status:
+- `frontend/` now has a production Dockerfile using Vite build output + Nginx.
+- `backend/` now has a production Dockerfile that packages and runs the Spring Boot jar.
+- `docker-compose.yml` now runs:
+  - frontend
+  - backend
+  - MongoDB
+  - PostgreSQL
+  - notification SOAP service
+- MailHog remains available as a dev-only Compose profile rather than a required deployable service.
+- Runtime config is wired through env vars so the stack can point at internal service names inside Compose.
+- `tests/e2e/container-stack-smoke.ps1` now verifies the build + boot + API smoke path for the full containerized stack.
 
 Important clarification:
 - **containerization is not the same as deployment**
@@ -494,6 +557,16 @@ Planned service responsibilities:
 - keep notification delivery concerns isolated from the main game backend
 - optionally persist notification records / attempts in SQL
 
+Current implementation status:
+- implemented as standalone project `notification-soap-service/`
+- exposes a single `sendNotification` SOAP operation
+- sends real email through SMTP (MailHog in local dev)
+- main backend acts as SOAP client through a small raw-XML integration
+- first wired notification types:
+  - low-hunger reminder
+  - daily AI summary
+- notification attempts are persisted in SQL (`notification_deliveries`) for audit/dedupe
+
 Initial notification scope:
 - real email delivery from the side-service (not mock-only)
 - first notification types:
@@ -511,15 +584,15 @@ Why this is a good fit:
 Recommended order:
 1. SQL event history foundation
 2. achievements on top of history
-3. containerize the app stack
-4. deploy to AWS
-5. add SOAP notification side-service
+3. add SOAP notification side-service
+4. containerize the app stack
+5. deploy to AWS
 
 Why this order:
 - achievements/history create product value immediately
+- SOAP side-service now has a natural place because notification preferences and SQL audit rows already exist
 - containerization helps every later phase
 - AWS deployment is easier once the stack is containerized
-- SOAP side-service is most useful once notification preferences and deployment shape are clearer
 
 #### 7.5.8 Open questions for this roadmap
 
@@ -530,11 +603,11 @@ SQL/history:
 
 Achievements:
 - permanent achievements first is the current direction
-- daily challenges are planned later, not in the first achievement release
+- daily challenges are now implemented as a thin layer on top of the activity-event stream
 - Should achievements be purely backend-driven, or can some UI-only milestones exist?
 
 Containerization/deploy:
-- we currently prefer one main deployable Compose setup for the main app if possible
+- one main deployable Compose setup for the main app now exists in `docker-compose.yml`
 - AI remains separate from that stack
 - For first AWS deployment, we currently prefer the simpler Linux VM / EC2 path.
 

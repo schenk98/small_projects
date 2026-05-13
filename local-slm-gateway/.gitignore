@@ -1,0 +1,15 @@
+# Secrets and local config (never commit)
+gateway.env
+gateway.env.local
+!gateway.env.example
+
+# SSH private keys
+*.pem
+*_keypair.pem
+ai_server_keypair.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

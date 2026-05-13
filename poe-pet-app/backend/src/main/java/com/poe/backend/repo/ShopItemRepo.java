@@ -13,4 +13,7 @@ public interface ShopItemRepo extends MongoRepository<ShopItem, String> {
     List<ShopItem> findByActiveTrue();
     /** Find an active shop item by its code. */
     Optional<ShopItem> findByCodeAndActiveTrue(String code);
+
+    /** Any row by stable code (used by catalog bootstrap). */
+    Optional<ShopItem> findByCode(String code);
 }

@@ -4,11 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-echo "==> Starting MongoDB + Mailhog via Docker Compose (from $ROOT)"
-docker compose up -d mongodb mailhog
+echo "==> Starting MongoDB + PostgreSQL + Mailhog(dev profile) + notification SOAP service via Docker Compose (from $ROOT)"
+docker compose --profile dev up -d mongodb postgres mailhog notification-soap-service
 
-echo "==> Waiting for MongoDB startup"
+echo "==> Waiting for local dependencies startup"
 sleep 3
+
+echo "==> Ensuring species shop items exist (non-destructive Mongo migration)"
+docker exec poe-pet-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin poe_pet /scripts/migrate-add-species-shop-items.js >/dev/null 2>&1 || true
 
 free_port() {
   local port="$1"
@@ -30,7 +33,11 @@ free_port 8080
 
 if [[ -f "./backend/pom.xml" ]]; then
   echo "==> Compiling backend"
-  (cd backend && mvn -q -DskipTests compile)
+  if [[ -f "./backend/mvnw" ]]; then
+    (cd backend && ./mvnw -q -DskipTests compile)
+  else
+    (cd backend && mvn -q -DskipTests compile)
+  fi
 else
   echo "==> Backend not found"
 fi
@@ -48,15 +55,18 @@ fi
 
 if [[ -f "./backend/pom.xml" ]]; then
   echo "==> Starting backend (background)"
-  (
-    cd backend
-    mvn spring-boot:run
-  ) &
+  if [[ -f "./backend/mvnw" ]]; then
+    (cd backend && ./mvnw spring-boot:run ) &
+  else
+    (cd backend && mvn spring-boot:run ) &
+  fi
 else
   echo "==> Backend not found"
 fi
 
 echo ""
 echo "==> Done. Frontend http://localhost:5173/  Backend http://localhost:8080/"
+echo "    MailHog http://localhost:8025/  Notification SOAP WSDL http://localhost:8081/ws/notifications.wsdl"
+echo "    Full container stack: docker compose --profile dev up -d --build"
 echo "See README.md -> Verify local stack"
 wait

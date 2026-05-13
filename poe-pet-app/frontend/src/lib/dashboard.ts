@@ -21,7 +21,8 @@ export type Dashboard = {
     happiness: number
     energy: number
     name?: string
-    speciesCode?: 'dog' | 'cat'
+    speciesCode?: 'dog' | 'cat' | 'penguin' | 'fox' | 'hamster' | 'tiger' | 'lion' | 'horse' | 'parrot' | 'unicorn' | 'midnight_cat' | 'panda' | 'goldfish' | 'lizard'
+    ownedSpeciesCodes?: string[]
     moodAssetCodes?: Partial<Record<'happy' | 'sad' | 'hungry' | 'tired' | 'playing_dead', string>>
     ownedVisualAssetCodes?: string[]
     equippedBackgroundAssetCode?: string | null

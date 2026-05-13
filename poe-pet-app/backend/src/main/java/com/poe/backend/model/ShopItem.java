@@ -12,7 +12,7 @@ public class ShopItem {
     public String id;
     /** Stable identifier used by purchase/inventory (e.g. {@code COIN_MULT_20P}). */
     public String code;
-    /** Item kind: CONSUMABLE or COSMETIC. */
+    /** Item kind: CONSUMABLE, COSMETIC, or SPECIES. */
     public String type;
     /** Optional UI grouping label for the shop page (frontend may use it for sections). */
     public String shopSection;

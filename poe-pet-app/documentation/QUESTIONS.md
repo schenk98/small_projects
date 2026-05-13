@@ -66,13 +66,15 @@ These are tracked in more detail in `documentation/SOURCE_OF_TRUTH.md` section *
 
 - Achievements:
   - decided: permanent achievements only first
-  - daily challenges should be added later and are already part of the roadmap direction
+  - shared daily challenges are now implemented as 3 generated daily goals on the Progress page
   - AI chat usage should be part of history from the start
 
 - Containerization / AWS:
   - decided: one main Compose-based container setup for the main app if possible
   - AI stays separate and is not part of the main app container stack
-  - containerization is preparation; deployment to AWS is the next step on top of it
+  - containerization is now in place for frontend + backend + MongoDB + PostgreSQL + notification SOAP service
+  - dev-only MailHog now lives behind the Compose `dev` profile
+  - containerization is preparation; **formal roadmap order ends with AWS (EC2) deploy** — see `documentation/ROADMAP.md` “Last milestone: AWS”
   - decided first deploy path: Linux VM / EC2
 
 - SOAP notification side-service:
@@ -81,6 +83,11 @@ These are tracked in more detail in `documentation/SOURCE_OF_TRUTH.md` section *
     - hungry pet notification below a low threshold (current direction: `< 15%`)
     - daily AI summary / daily AI-based notification
   - both first-version notification types should have their own toggle button in settings
+  - current implementation status:
+    - those two toggles exist in app settings and are stored in PostgreSQL
+    - the standalone SOAP notification service exists
+    - the main backend now sends low-hunger reminders and daily summaries through that service
+    - delivery attempts are recorded in SQL for dedupe/audit
   - still open: which additional notification types should follow after that
 
 # AI kontejner app research:

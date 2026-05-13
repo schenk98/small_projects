@@ -1,12 +1,14 @@
-import { MOOD_LABELS, deriveMood, type MoodCode, type PetVisualAsset, type SpeciesCode } from '../../lib/petVisuals'
+import { MOOD_LABELS, SPECIES_LABELS, deriveMood, normalizeSpeciesCode, type MoodCode, type PetVisualAsset, type SavedMoodCode, type SpeciesCode } from '../../lib/petVisuals'
 import type { Dashboard } from '../../lib/dashboard'
 
 export function PetStage({
   dashboard,
   visualCatalog,
+  transientMood,
 }: {
   dashboard: Dashboard
   visualCatalog: PetVisualAsset[]
+  transientMood?: MoodCode
 }) {
   /**
    * PetStage renders a simple 3-layer scene:
@@ -14,11 +16,12 @@ export function PetStage({
    * 2) the pet mood PNG (required for the stage to look "alive")
    * 3) foreground overlay (optional)
    */
-  const speciesCode: SpeciesCode = (dashboard.pet.speciesCode === 'cat' ? 'cat' : 'dog')
-  const activeMood: MoodCode = deriveMood(dashboard.pet)
+  const speciesCode: SpeciesCode = normalizeSpeciesCode(dashboard.pet.speciesCode)
+  const baseMood: SavedMoodCode = deriveMood(dashboard.pet)
+  const activeMood: MoodCode = transientMood ?? baseMood
 
   const moodAssetsForSpecies = visualCatalog.filter((a) => a.assetType === 'PET_MOOD' && a.speciesCode === speciesCode)
-  const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<MoodCode, string>>
+  const moodSlots = (dashboard.pet.moodAssetCodes || {}) as Partial<Record<SavedMoodCode, string>>
   const pathForVisualCode = (code: string | null | undefined) =>
     (code && visualCatalog.find((a) => a.code === code)?.imagePath) || ''
 
@@ -28,8 +31,10 @@ export function PetStage({
   const foregroundLayerUrl = pathForVisualCode(equippedFg)
 
   const moodImagePath = (() => {
-    // Slot override wins if present; otherwise fallback to the default asset for the derived mood.
-    const selectedCode = moodSlots[activeMood]
+    // Slot override wins for saved gameplay moods. Transient moods like "thinking"
+    // intentionally use the default starter visual so chat can animate without
+    // mutating the persisted pet customization map.
+    const selectedCode = activeMood === baseMood ? moodSlots[activeMood] : undefined
     if (selectedCode) {
       const sel = moodAssetsForSpecies.find((a) => a.code === selectedCode)
       if (sel) return sel.imagePath
@@ -41,7 +46,7 @@ export function PetStage({
 
   return (
     <div className="pet-stage card">
-      <h3>{speciesCode === 'cat' ? 'Cat' : 'Dog'} — {MOOD_LABELS[activeMood]}</h3>
+      <h3>{SPECIES_LABELS[speciesCode]} — {MOOD_LABELS[activeMood]}</h3>
       {moodImagePath ? (
         <div
           className="pet-stage-layers"

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.poe.backend.security.CurrentUser;
 import com.poe.backend.service.AppService;
+import com.poe.backend.sql.service.NotificationPreferenceService;
+import com.poe.backend.sql.service.ProgressQueryService;
 
 /**
  * Main game API consumed by the Vite/React frontend.
@@ -25,9 +27,16 @@ import com.poe.backend.service.AppService;
 @RequestMapping("/api")
 public class GameController {
     private final AppService appService;
+    private final ProgressQueryService progressQueryService;
+    private final NotificationPreferenceService notificationPreferenceService;
 
-    public GameController(AppService appService) {
+    public GameController(
+            AppService appService,
+            ProgressQueryService progressQueryService,
+            NotificationPreferenceService notificationPreferenceService) {
         this.appService = appService;
+        this.progressQueryService = progressQueryService;
+        this.notificationPreferenceService = notificationPreferenceService;
     }
 
     @GetMapping("/dashboard")
@@ -53,6 +62,29 @@ public class GameController {
         return ResponseEntity.ok(appService.inventory(CurrentUser.get()));
     }
 
+    /** Return achievements progress plus recent activity rows for the current user. */
+    @GetMapping("/progress/summary")
+    public ResponseEntity<?> progressSummary() {
+        return ResponseEntity.ok(progressQueryService.getSummary(CurrentUser.get()));
+    }
+
+    /** Return the current user's first-version notification toggles. */
+    @GetMapping("/notification-preferences")
+    public ResponseEntity<?> notificationPreferences() {
+        return ResponseEntity.ok(notificationPreferenceService.getForUser(CurrentUser.get()));
+    }
+
+    /** Update low-hunger and daily-AI-summary notification toggles. */
+    @PostMapping("/notification-preferences")
+    public ResponseEntity<?> updateNotificationPreferences(@RequestBody Map<String, Object> payload) {
+        boolean lowHungerEnabled = payload.get("lowHungerEnabled") instanceof Boolean b && b;
+        boolean dailyAiSummaryEnabled = payload.get("dailyAiSummaryEnabled") instanceof Boolean b && b;
+        return ResponseEntity.ok(notificationPreferenceService.updateForUser(
+                CurrentUser.get(),
+                lowHungerEnabled,
+                dailyAiSummaryEnabled));
+    }
+
     /** Full visual catalog: PET_MOOD, BACKGROUND, FOREGROUND (sorted). */
     @GetMapping("/pet-visuals/catalog")
     public ResponseEntity<?> petVisualCatalog() {
@@ -60,7 +92,7 @@ public class GameController {
     }
 
     @PostMapping("/pet-visuals/species")
-    /** Set base pet species (dog/cat). */
+    /** Set base pet species. Non-starter species must be unlocked through the shop first. */
     public ResponseEntity<?> setSpecies(@RequestBody Map<String, String> payload) {
         return ResponseEntity.ok(appService.setSpecies(CurrentUser.get(), payload.get("speciesCode")));
     }
@@ -103,6 +135,12 @@ public class GameController {
                 ? (List<Map<String, String>>) l
                 : List.of();
         return ResponseEntity.ok(appService.aiChat(CurrentUser.get(), conversation, message));
+    }
+
+    /** Public AI integration summary (gateway reachability, guardrail sizes). */
+    @GetMapping("/ai/info")
+    public ResponseEntity<?> aiInfo() {
+        return ResponseEntity.ok(appService.getAiChatInfo());
     }
 
     @GetMapping("/minigames")

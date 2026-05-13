@@ -10,8 +10,8 @@ export type GameShopItem = {
   description: string
   priceCoins: number
   oneTimePurchase: boolean
-  shopSection?: 'CONSUMABLES' | 'COSMETICS'
-  effects?: { kind: string; value?: string | number; visualAssetCode?: string }[]
+  shopSection?: 'CONSUMABLES' | 'COSMETICS' | 'SPECIES'
+  effects?: { kind: string; value?: string | number; visualAssetCode?: string; speciesCode?: string }[]
   playerVisible?: boolean
 }
 

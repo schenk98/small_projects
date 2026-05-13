@@ -34,18 +34,21 @@ export function AuthLogin({ setTokens, setMessage }: { setTokens: (t: Tokens) =>
 export function AuthRegister({ setMessage }: { setMessage: (m: string) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const navigate = useNavigate()
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const res = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
     const data = await res.json()
-    setMessage(data.message || data.error || 'Done')
+    const msg = data.message || data.error || 'Done'
+    setMessage(msg)
+    if (res.ok && typeof msg === 'string' && msg.includes('log in now')) navigate('/login')
   }
   return (
     <form className="card" onSubmit={onSubmit}>
       <h2>Register</h2>
       <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <button type="submit">Register + Send verification email</button>
+      <button type="submit">Register</button>
       <p><Link to="/login">Back to login</Link></p>
     </form>
   )

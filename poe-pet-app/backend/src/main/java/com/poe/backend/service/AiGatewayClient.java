@@ -32,11 +32,13 @@ public class AiGatewayClient {
     public AiGatewayClient(
             ObjectMapper objectMapper,
             @Value("${app.aiGatewayBaseUrl:}") String baseUrl,
-            @Value("${app.aiGatewayApiKey:}") String apiKey) {
+            @Value("${app.aiGatewayApiKey:}") String apiKey,
+            @Value("${app.aiGatewayConnectTimeoutSeconds:10}") int connectTimeoutSeconds) {
         this.objectMapper = objectMapper;
+        int connectSec = Math.max(1, connectTimeoutSeconds);
         // Force HTTP/1.1 to avoid any HTTP/2 negotiation weirdness with local dev servers.
         this.http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(3))
+                .connectTimeout(Duration.ofSeconds(connectSec))
                 .version(HttpClient.Version.HTTP_1_1)
                 .build();
         this.baseUrl = new AtomicReference<>(baseUrl != null ? baseUrl.trim() : "");
@@ -90,7 +92,7 @@ public class AiGatewayClient {
     private Map<String, Object> getJson(String path) throws IOException, InterruptedException {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(uri(path))
-                .timeout(Duration.ofSeconds(5))
+                .timeout(Duration.ofSeconds(15))
                 .GET()
                 .build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());

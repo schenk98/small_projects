@@ -43,11 +43,19 @@ function Stop-ListenerOnPort {
     }
 }
 
-Write-Host "==> Starting MongoDB + Mailhog via Docker Compose (from $Root)"
-docker compose up -d mongodb mailhog
+Write-Host "==> Starting MongoDB + PostgreSQL + Mailhog(dev profile) + notification SOAP service via Docker Compose (from $Root)"
+docker compose --profile dev up -d mongodb postgres mailhog notification-soap-service
 
-Write-Host "==> Waiting for MongoDB startup"
+Write-Host "==> Waiting for database startup"
 Start-Sleep -Seconds 3
+
+Write-Host "==> Ensuring species shop items exist (non-destructive Mongo migration)"
+try {
+    docker exec poe-pet-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin poe_pet /scripts/migrate-add-species-shop-items.js | Out-Null
+}
+catch {
+    Write-Host "Mongo migration failed (continuing): $($_.Exception.Message)"
+}
 
 Write-Host "==> Freeing dev ports 5173 (Vite) and 8080 (Spring)"
 Stop-ListenerOnPort -PortNumber 5173
@@ -57,7 +65,12 @@ if (Test-Path ".\backend\pom.xml") {
     Write-Host "==> Compiling backend (ensures latest API e.g. reward-preview is on classpath)"
     Push-Location .\backend
     try {
-        mvn -q -DskipTests compile
+        if (Test-Path ".\mvnw.cmd") {
+            .\mvnw.cmd -q -DskipTests compile
+        }
+        else {
+            mvn -q -DskipTests compile
+        }
     }
     finally {
         Pop-Location
@@ -80,18 +93,21 @@ else {
 }
 
 if (Test-Path ".\backend\pom.xml") {
-    Write-Host "==> Starting backend in a new window (mvn spring-boot:run)"
+    Write-Host "==> Starting backend in a new window (spring-boot:run)"
     $be = Join-Path $Root "backend"
+    $mvnSpring = 'if (Test-Path .\mvnw.cmd) { .\mvnw.cmd spring-boot:run } else { mvn spring-boot:run }'
     Start-Process powershell -ArgumentList @(
         "-NoExit", "-Command",
-        "Set-Location `"$be`"; mvn spring-boot:run"
+        "Set-Location `"$be`"; $mvnSpring"
     )
 }
 
 Write-Host ""
 Write-Host "==> Done."
-Write-Host "    - MongoDB + Mailhog: docker (see docker-compose.yml)"
+Write-Host "    - MongoDB + PostgreSQL + Mailhog(dev profile) + notification SOAP service: docker (see docker-compose.yml)"
 Write-Host "    - Frontend: http://localhost:5173/"
 Write-Host "    - Backend:  http://localhost:8080/"
 Write-Host "    - MailHog UI: http://localhost:8025/"
+Write-Host "    - Notification SOAP WSDL: http://localhost:8081/ws/notifications.wsdl"
+Write-Host "    - Full container stack: docker compose --profile dev up -d --build"
 Write-Host "See README.md section: Verify local stack"

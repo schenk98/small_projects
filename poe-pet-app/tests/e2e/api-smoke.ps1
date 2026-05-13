@@ -1,3 +1,5 @@
+# API smoke: auth register -> MailHog verification email -> verify -> login -> shop purchase -> inventory -> progress + notification prefs.
+
 $ErrorActionPreference = "Stop"
 
 $email = "e2e$(Get-Date -Format yyyyMMddHHmmss)@example.com"
@@ -25,5 +27,22 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/shop/purchase" -H
 
 $inventory = Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/inventory" -Headers $headers
 if (-not ($inventory | Where-Object { $_.itemCode -eq $consumable })) { throw "Inventory purchase failed" }
+
+$progress = Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/progress/summary" -Headers $headers
+if (-not $progress.dailyChallenges) { throw "Progress summary missing daily challenges" }
+if ($progress.dailyChallenges.Count -ne 3) { throw "Expected exactly 3 daily challenges" }
+if (-not $progress.achievements) { throw "Progress summary missing achievements" }
+if (-not $progress.recentActivity) { throw "Progress summary missing recent activity" }
+
+$notificationPrefs = Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/notification-preferences" -Headers $headers
+if ($notificationPrefs.lowHungerEnabled -ne $false) { throw "Expected default low-hunger toggle to be false" }
+if ($notificationPrefs.dailyAiSummaryEnabled -ne $false) { throw "Expected default daily summary toggle to be false" }
+
+$updatedPrefs = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/notification-preferences" -Headers $headers -ContentType "application/json" -Body (@{
+    lowHungerEnabled = $true
+    dailyAiSummaryEnabled = $true
+} | ConvertTo-Json)
+if ($updatedPrefs.lowHungerEnabled -ne $true) { throw "Failed to enable low-hunger toggle" }
+if ($updatedPrefs.dailyAiSummaryEnabled -ne $true) { throw "Failed to enable daily summary toggle" }
 
 Write-Host "E2E smoke passed"

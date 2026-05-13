@@ -23,8 +23,15 @@ public class PetState {
     public double energy;
     /** Optional user-facing pet name. Used by the AI chat prefix and some UI labels. */
     public String name;
-    /** Selected base pet species (starter choices: dog/cat). */
+    /**
+     * Optional in-character voice notes for AI chat (Mongo). When blank, a default sketch for {@link #speciesCode}
+     * is used (see {@link com.poe.backend.service.SpeciesAiPersona}).
+     */
+    public String aiPersonalityBrief;
+    /** Selected base pet species (starter choices: dog/cat; shop unlocks add more). */
     public String speciesCode;
+    /** Species codes this user can select. Dog and cat are always granted on migration. */
+    public List<String> ownedSpeciesCodes = new ArrayList<>();
     /** Optional mood slot overrides: mood -> assetCode. */
     public Map<String, String> moodAssetCodes = new HashMap<>();
     /** Cosmetic catalog codes this user has unlocked (backgrounds, foregrounds, alternate mood art). */
