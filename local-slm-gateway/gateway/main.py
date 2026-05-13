@@ -22,7 +22,7 @@ API_KEY = _require_env("AI_GATEWAY_API_KEY")
 MAX_PROMPT_CHARS = int(os.getenv("AI_MAX_PROMPT_CHARS", "1200"))
 MAX_TURNS = int(os.getenv("AI_MAX_TURNS", "8"))
 MAX_OUTPUT_TOKENS = int(os.getenv("AI_MAX_OUTPUT_TOKENS", "120"))
-OLLAMA_TIMEOUT_MS = int(os.getenv("AI_OLLAMA_TIMEOUT_MS", "15000"))
+OLLAMA_TIMEOUT_MS = int(os.getenv("AI_OLLAMA_TIMEOUT_MS", "300000"))
 
 # Cheap CPU-friendly knobs (reduce memory/latency).
 OLLAMA_NUM_CTX = int(os.getenv("AI_OLLAMA_NUM_CTX", "1024"))

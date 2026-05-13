@@ -28,13 +28,16 @@ public class AiGatewayClient {
     private final HttpClient http;
     private final AtomicReference<String> baseUrl;
     private final AtomicReference<String> apiKey;
+    private final int chatTimeoutSeconds;
 
     public AiGatewayClient(
             ObjectMapper objectMapper,
             @Value("${app.aiGatewayBaseUrl:}") String baseUrl,
             @Value("${app.aiGatewayApiKey:}") String apiKey,
-            @Value("${app.aiGatewayConnectTimeoutSeconds:10}") int connectTimeoutSeconds) {
+            @Value("${app.aiGatewayConnectTimeoutSeconds:10}") int connectTimeoutSeconds,
+            @Value("${app.aiGatewayChatTimeoutSeconds:300}") int chatTimeoutSeconds) {
         this.objectMapper = objectMapper;
+        this.chatTimeoutSeconds = Math.max(30, chatTimeoutSeconds);
         int connectSec = Math.max(1, connectTimeoutSeconds);
         // Force HTTP/1.1 to avoid any HTTP/2 negotiation weirdness with local dev servers.
         this.http = HttpClient.newBuilder()
@@ -113,7 +116,7 @@ public class AiGatewayClient {
         }
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(uri(path))
-                .timeout(Duration.ofSeconds(90))
+                .timeout(Duration.ofSeconds(chatTimeoutSeconds))
                 .header("Authorization", "Bearer " + k)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))

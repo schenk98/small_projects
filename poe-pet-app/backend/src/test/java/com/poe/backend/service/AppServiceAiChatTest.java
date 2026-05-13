@@ -139,4 +139,16 @@ class AppServiceAiChatTest {
         assertEquals(true, res.get("fallbackUsed"));
         assertEquals("empty_message", res.get("fallbackReason"));
     }
+
+    @Test
+    void aiChatMarksFallbackWhenModelReturnsExactSpeciesNoise() throws Exception {
+        when(aiGatewayClient.isEnabled()).thenReturn(true);
+        when(aiGatewayClient.chat(any())).thenReturn(Map.of("assistantText", "*wags tail*", "usage", Map.of("latencyMs", 1)));
+
+        Map<String, Object> res = appService.aiChat("u1", List.of(), "explain yourself");
+
+        assertEquals(true, res.get("fallbackUsed"));
+        assertEquals("model_short_reply", res.get("fallbackReason"));
+        assertEquals("*wags tail*", res.get("assistantText"));
+    }
 }

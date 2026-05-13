@@ -384,19 +384,19 @@ public class AppService {
                 "message", safeMessage);
         try {
             Map<String, Object> res = enforceAssistantLength(aiGatewayClient.chat(payload));
+            res = annotateIfModelEchoedFallbackNoise(species, res);
             // Ensure callers always get a consistent shape.
             if (res.get("assistantText") instanceof String) {
                 recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
-                        Map.of("conversationSize", safeConv.size(),
-                                "messageLength", safeMessage.length(),
-                                "fallbackUsed", false));
+                        aiChatActivityMeta(safeConv.size(), safeMessage.length(), res));
                 return res;
             }
-            Map<String, Object> normalized = Map.of("assistantText", String.valueOf(res), "fallbackUsed", false);
+            Map<String, Object> normalized = new HashMap<>();
+            normalized.put("assistantText", String.valueOf(res));
+            normalized.put("fallbackUsed", false);
+            normalized = annotateIfModelEchoedFallbackNoise(species, normalized);
             recordActivity(userId, "AI_CHAT_SENT", "ai", pet, walletOrNull(userId),
-                    Map.of("conversationSize", safeConv.size(),
-                            "messageLength", safeMessage.length(),
-                            "fallbackUsed", false));
+                    aiChatActivityMeta(safeConv.size(), safeMessage.length(), normalized));
             return normalized;
         } catch (Exception e) {
             Map<String, Object> fallback = Map.of(
@@ -467,63 +467,39 @@ public class AppService {
         return copy;
     }
 
+    /**
+     * When the model returns text identical to our server-side species fallback lines, mark {@code fallbackUsed}
+     * so the UI matches degraded behavior (gateway HTTP still succeeded).
+     */
+    private Map<String, Object> annotateIfModelEchoedFallbackNoise(String species, Map<String, Object> res) {
+        if (res == null) {
+            return res;
+        }
+        if (!(res.get("assistantText") instanceof String text)) {
+            return res;
+        }
+        if (!SpeciesFallbackNoises.matchesFallbackPhrase(species, text)) {
+            return res;
+        }
+        Map<String, Object> copy = new HashMap<>(res);
+        copy.put("fallbackUsed", true);
+        copy.put("fallbackReason", "model_short_reply");
+        return copy;
+    }
+
+    private static Map<String, Object> aiChatActivityMeta(int conversationSize, int messageLength, Map<String, Object> result) {
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("conversationSize", conversationSize);
+        meta.put("messageLength", messageLength);
+        meta.put("fallbackUsed", Boolean.TRUE.equals(result.get("fallbackUsed")));
+        if (result.get("fallbackReason") instanceof String fr && !fr.isBlank()) {
+            meta.put("fallbackReason", fr);
+        }
+        return meta;
+    }
+
     private String fallbackNoisesForSpecies(String speciesCode) {
-        String s = speciesCode != null ? speciesCode.trim().toLowerCase(Locale.ROOT) : "";
-        if (s.equals("cat")) {
-            String[] options = new String[] { "*meows softly*", "*purrs*", "*mrrp?*", "*makes a curious cat noise*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("penguin")) {
-            String[] options = new String[] { "*chirps thoughtfully*", "*waddles closer*", "*makes a tiny penguin peep*", "*flaps flippers softly*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("fox")) {
-            String[] options = new String[] { "*yips cheekily*", "*swishes a fluffy tail*", "*gives a tiny fox giggle*", "*makes a playful fox sound*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("hamster")) {
-            String[] options = new String[] { "*squeaks with full cheeks*", "*nibbles happily*", "*makes a tiny hamster peep*", "*wiggles its whiskers*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("tiger")) {
-            String[] options = new String[] { "*makes a tiny tiger chuff*", "*swishes a striped tail*", "*practices a baby roar*", "*pads closer with cub paws*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("lion")) {
-            String[] options = new String[] { "*gives a soft cub roar*", "*flicks a tufted tail*", "*puffs up its little mane*", "*nuzzles proudly*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("horse")) {
-            String[] options = new String[] { "*nickers softly*", "*prances in place*", "*flicks a fluffy tail*", "*makes a tiny foal whinny*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("parrot")) {
-            String[] options = new String[] { "*chirps brightly*", "*fluffs colorful feathers*", "*squawks hello softly*", "*tilts a curious beak*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("unicorn")) {
-            String[] options = new String[] { "*whinnies with sparkles*", "*taps golden hooves*", "*shakes a pastel mane*", "*makes a tiny magical neigh*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("midnight_cat")) {
-            String[] options = new String[] { "*purrs like distant stars*", "*swishes a galaxy tail*", "*mrrps mysteriously*", "*sparkles with midnight fur*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("panda")) {
-            String[] options = new String[] { "*blinks cluelessly*", "*hugs a bamboo snack*", "*makes a tiny panda huff*", "*rolls around happily*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("goldfish")) {
-            String[] options = new String[] { "*blubs happily*", "*swishes golden fins*", "*makes tiny aquarium bubbles*", "*circles the bowl cheerfully*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        if (s.equals("lizard")) {
-            String[] options = new String[] { "*blinks with tiny lizard eyes*", "*curls a green tail*", "*makes a soft reptile chirp*", "*scampers closer on tiny toes*" };
-            return options[(int) (Math.random() * options.length)];
-        }
-        // default: dog-ish
-        String[] options = new String[] { "*barks cheerfully*", "*woof?*", "*wags tail*", "*makes a curious noise*" };
-        return options[(int) (Math.random() * options.length)];
+        return SpeciesFallbackNoises.randomPhrase(speciesCode);
     }
 
     /** Visible to clients to gate developer tools UI. */

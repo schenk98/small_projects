@@ -25,7 +25,7 @@ class PetVisualCatalogSeederTest {
 
         seeder.run(null);
 
-        verify(petVisualAssetRepo, times(84)).save(any(PetVisualAsset.class));
+        verify(petVisualAssetRepo, times(90)).save(any(PetVisualAsset.class));
         verify(petVisualAssetRepo).save(argThat(asset ->
                 "dog_happy_default".equals(asset.code)
                         && "dog".equals(asset.speciesCode)
@@ -184,7 +184,13 @@ class PetVisualCatalogSeederTest {
                 "lizard_hungry_default",
                 "lizard_tired_default",
                 "lizard_thinking_default",
-                "lizard_playing_dead_default")) {
+                "lizard_playing_dead_default",
+                "bg_aurora_default",
+                "bg_candy_default",
+                "bg_dusk_default",
+                "bg_underwater_default",
+                "fg_soft_vignette_default",
+                "fg_sparkle_default")) {
             PetVisualAsset existing = new PetVisualAsset();
             existing.code = code;
             existing.active = true;

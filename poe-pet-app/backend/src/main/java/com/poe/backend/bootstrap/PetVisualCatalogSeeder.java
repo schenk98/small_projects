@@ -123,7 +123,13 @@ public class PetVisualCatalogSeeder implements ApplicationRunner {
                 petMood("lizard_hungry_default", "lizard", "hungry", "Lizard Hungry (Default)", "/pet-assets/lizard/hungry-default.png"),
                 petMood("lizard_tired_default", "lizard", "tired", "Lizard Tired (Default)", "/pet-assets/lizard/tired-default.png"),
                 petMood("lizard_thinking_default", "lizard", "thinking", "Lizard Thinking (Default)", "/pet-assets/lizard/thinking-default.png"),
-                petMood("lizard_playing_dead_default", "lizard", "playing_dead", "Lizard Playing Dead (Default)", "/pet-assets/lizard/playing-dead-default.png"));
+                petMood("lizard_playing_dead_default", "lizard", "playing_dead", "Lizard Playing Dead (Default)", "/pet-assets/lizard/playing-dead-default.png"),
+                visualLayer("bg_aurora_default", "BACKGROUND", "Aurora Hills", "/cosmetic-staging/backgrounds/theme-aurora.svg", false),
+                visualLayer("bg_candy_default", "BACKGROUND", "Candy Dream", "/cosmetic-staging/backgrounds/theme-candy.svg", false),
+                visualLayer("bg_dusk_default", "BACKGROUND", "Dusk Glow", "/cosmetic-staging/backgrounds/theme-dusk.svg", false),
+                visualLayer("bg_underwater_default", "BACKGROUND", "Underwater", "/cosmetic-staging/backgrounds/theme-underwater.svg", false),
+                visualLayer("fg_soft_vignette_default", "FOREGROUND", "Soft vignette (free)", "/cosmetic-staging/foregrounds/soft-vignette.svg", true),
+                visualLayer("fg_sparkle_default", "FOREGROUND", "Sparkle frame", "/cosmetic-staging/foregrounds/sparkle-frame.svg", false));
     }
 
     private static PetVisualAsset petMood(String code, String speciesCode, String moodCode, String label, String imagePath) {
@@ -135,6 +141,19 @@ public class PetVisualCatalogSeeder implements ApplicationRunner {
         asset.label = label;
         asset.imagePath = imagePath;
         asset.starter = true;
+        asset.active = true;
+        return asset;
+    }
+
+    private static PetVisualAsset visualLayer(String code, String assetType, String label, String imagePath, boolean starter) {
+        PetVisualAsset asset = new PetVisualAsset();
+        asset.code = code;
+        asset.assetType = assetType;
+        asset.speciesCode = "all";
+        asset.moodCode = "";
+        asset.label = label;
+        asset.imagePath = imagePath;
+        asset.starter = starter;
         asset.active = true;
         return asset;
     }

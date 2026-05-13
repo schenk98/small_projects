@@ -42,8 +42,10 @@ Create a `gateway.env` file next to `docker-compose.yml`:
 ```env
 AI_GATEWAY_API_KEY=dev-secret
 OLLAMA_MODEL=phi4-mini
-AI_OLLAMA_TIMEOUT_MS=60000
+AI_OLLAMA_TIMEOUT_MS=300000
 ```
+
+If `AI_OLLAMA_TIMEOUT_MS` is omitted, the gateway defaults to **300000** ms (5 minutes) so small CPU instances can finish a cold first token without returning 503 to callers.
 
 ## API contract (gateway)
 

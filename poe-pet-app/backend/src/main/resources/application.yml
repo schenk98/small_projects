@@ -52,6 +52,8 @@ app:
   aiGatewayBaseUrl: ${APP_AI_GATEWAY_BASE_URL:}
   aiGatewayApiKey: ${APP_AI_GATEWAY_API_KEY:}
   aiGatewayConnectTimeoutSeconds: ${APP_AI_GATEWAY_CONNECT_TIMEOUT_SECONDS:10}
+  # Full POST /v1/chat wait (align with gateway AI_OLLAMA_TIMEOUT_MS and nginx /api/ai/ proxy_read_timeout).
+  aiGatewayChatTimeoutSeconds: ${APP_AI_GATEWAY_CHAT_TIMEOUT_SECONDS:300}
   # Extra system-style instructions appended to the pet context prefix (keeps replies short and in-character).
   aiPersonaAddendum: "${APP_AI_PERSONA_ADDENDUM:Persona rules: answer in 1-3 short sentences as the pet. Playful and curious. Do not mention being an AI or a language model. No URLs or code blocks.}"
   aiChatMaxUserMessageChars: ${APP_AI_CHAT_MAX_USER_MESSAGE_CHARS:1800}
