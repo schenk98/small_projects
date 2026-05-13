@@ -202,17 +202,27 @@ export function SettingsPage({
       <p><Link to="/forgot-password">Reset password</Link></p>
       <button type="button" onClick={() => setTokens(null)}>Logout</button>
       <h3>AI chat</h3>
-      {dashboard.privileged ? (
-        <p className="muted">
-          Pet chat calls the <strong>Local SLM Gateway</strong> from the Java backend (API key never ships to the browser).
-          Model selection is configured on the gateway (for example <code>OLLAMA_MODEL</code> in <code>local-slm-gateway</code>).
-        </p>
-      ) : (
-        <p className="muted">Pet chat runs through the game server. If the AI link is down, chat will not work.</p>
-      )}
+      <p className="muted">Pet chat runs through the game server. If the AI link is down, chat will not work.</p>
       {aiInfoStatus ? <p className="muted">{aiInfoStatus}</p> : null}
       {aiInfo ? (
-        dashboard.privileged ? (
+        <ul style={{ lineHeight: 1.6 }}>
+          <li>
+            <strong>Pet chat enabled on server</strong>:{' '}
+            {aiInfo.gatewayConfigured === true ? 'Yes' : 'No'}
+          </li>
+          {aiInfo.gatewayHealth && typeof aiInfo.gatewayHealth === 'object' ? (
+            <li>{formatGatewayHealthForUser(aiInfo.gatewayHealth)}</li>
+          ) : null}
+          <li className="muted">Messages are limited per turn so replies stay short and safe.</li>
+        </ul>
+      ) : null}
+      {dashboard.privileged && aiInfo ? (
+        <details className="settings-dev-details">
+          <summary>Developer: AI gateway technical details</summary>
+          <p className="muted">
+            Backend calls the Local SLM Gateway; the API key never ships to the browser. Model selection is on the gateway
+            (for example <code>OLLAMA_MODEL</code> in <code>local-slm-gateway</code>).
+          </p>
           <ul style={{ lineHeight: 1.6 }}>
             <li>
               <strong>Gateway configured (backend)</strong>: {String(aiInfo.gatewayConfigured)}
@@ -223,30 +233,24 @@ export function SettingsPage({
             </li>
             {aiInfo.gatewayHealth && typeof aiInfo.gatewayHealth === 'object' ? (
               <li>
-                <strong>Gateway health</strong>:{' '}
+                <strong>Gateway health (raw)</strong>:{' '}
                 <code style={{ fontSize: '0.85em' }}>{JSON.stringify(aiInfo.gatewayHealth)}</code>
               </li>
             ) : null}
           </ul>
-        ) : (
-          <ul style={{ lineHeight: 1.6 }}>
-            <li>
-              <strong>Pet chat available</strong>: {String(aiInfo.gatewayConfigured)}
-            </li>
-            {aiInfo.gatewayHealth && typeof aiInfo.gatewayHealth === 'object' ? (
-              <li>{formatGatewayHealthForUser(aiInfo.gatewayHealth)}</li>
-            ) : null}
-            <li className="muted">
-              Messages are limited per turn so replies stay short and safe.
-            </li>
-          </ul>
-        )
+        </details>
       ) : null}
 
       <h3>Notifications</h3>
-      <p className="muted">
-        These settings are the first app-facing part of the planned notification system. The first delivery targets are low-hunger reminders and a daily AI summary.
-      </p>
+      <p className="muted">Optional email reminders about your pet.</p>
+      {dashboard.privileged ? (
+        <details className="settings-dev-details">
+          <summary>Developer: notification system notes</summary>
+          <p className="muted">
+            First delivery targets are low-hunger reminders and a daily AI summary; wiring is still evolving.
+          </p>
+        </details>
+      ) : null}
       <label className="settings-toggle">
         <input
           type="checkbox"
