@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: reading-tracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: reading_tracker
+      POSTGRES_USER: reading_tracker
+      POSTGRES_PASSWORD: reading_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reading-tracker-app
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/reading_tracker
+      SPRING_DATASOURCE_USERNAME: reading_tracker
+      SPRING_DATASOURCE_PASSWORD: reading_tracker
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_PROFILES_ACTIVE: dev
+
+volumes:
+  postgres_data:

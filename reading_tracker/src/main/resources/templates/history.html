@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Historie</title>
+    <style>
+        body { margin:0; font-family:Arial,sans-serif; background:#f8fafc; color:#0f172a; }
+        .shell { max-width:1200px; margin:28px auto; padding:0 18px 40px; }
+        .topbar { background:#0f172a; color:white; border-radius:22px; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; gap:16px; }
+        .user-box { display:flex; align-items:center; gap:12px; }
+        .avatar { width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,#7dd3fc,#2563eb); display:flex; align-items:center; justify-content:center; font-weight:700; }
+        .role-tag { display:inline-block; background:rgba(125,211,252,.18); border:1px solid rgba(125,211,252,.35); border-radius:999px; padding:4px 8px; font-size:.7rem; font-weight:700; text-transform: uppercase; }
+        .mini-stats { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+        .mini-stat { background:rgba(255,255,255,0.08); border-radius:999px; padding:7px 12px; }
+        .logout { color:white; text-decoration:none; font-weight:700; }
+        .nav { margin-top:18px; display:flex; flex-wrap:wrap; gap:10px; }
+        .nav a { text-decoration:none; color:#0f172a; background:white; border:1px solid #dfe7f5; border-radius:10px; padding:9px 14px; font-weight:600; }
+        .nav a.active { background:#0f172a; color:white; }
+        .panel { margin-top:22px; background:white; border-radius:18px; padding:22px; box-shadow:0 12px 28px rgba(15,23,42,0.06); }
+        .sessions { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+        .session { border:1px solid #e2e8f0; border-radius:12px; padding:14px; }
+        .muted { color:#475569; }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <header class="topbar">
+        <div class="user-box">
+            <div class="avatar" th:text="${avatarText}">U</div>
+            <div>
+                <div class="role-tag" th:text="${role}">STUDENT</div>
+                <div th:text="${userEmail}">user@email.com</div>
+            </div>
+        </div>
+        <div class="mini-stats">
+            <div class="mini-stat" th:text="|Peněženka: ${walletBalance} bodů|">Peněženka: 0 bodů</div>
+            <div class="mini-stat" th:text="|Knihy: ${booksCount}|">Knihy: 0</div>
+            <div class="mini-stat" th:text="|Záznamy: ${recordsCount}|">Záznamy: 0</div>
+            <a class="logout" th:href="@{/logout}">Odhlásit</a>
+        </div>
+    </header>
+
+    <nav class="nav" aria-label="Hlavní navigace">
+        <a th:href="@{/dashboard}">Dashboard</a>
+        <a th:href="@{/new-session}">Nový záznam</a>
+        <a th:href="@{/books}">Knihy</a>
+        <a th:href="@{/history}" class="active">Historie</a>
+        <a th:href="@{/shop}">Obchod</a>
+        <a th:if="${isTeacher}" th:href="@{/users}">Uživatelé</a>
+        <a th:if="${isTeacher}" th:href="@{/teacher-shop}">Nastavení obchodu</a>
+        <a th:if="${isTeacher}" th:href="@{/teacher-questions}">Otázky & bodování</a>
+    </nav>
+
+    <div class="panel">
+        <h2>Historie</h2>
+        <div th:if="${isTeacher and !isOwnHistory}" style="background:#e3f2fd; border:1px solid #90caf9; border-radius:8px; padding:12px; margin-bottom:16px;">
+            Prohlížíte historii studenta. V MVP je historie pouze pro čtení.
+        </div>
+
+        <table th:if="${!#lists.isEmpty(historyEvents)}" style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:2px solid #dfe7f5; background:#f8fafc;">
+                    <th style="text-align:left; padding:12px; font-weight:600;">Datum</th>
+                    <th style="text-align:left; padding:12px; font-weight:600;">Akce</th>
+                    <th style="text-align:left; padding:12px; font-weight:600;">Body</th>
+                    <th style="text-align:left; padding:12px; font-weight:600;">Detaily</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="event : ${historyEvents}" style="border-bottom:1px solid #e2e8f0; padding:12px;">
+                    <td style="padding:12px;" th:text="${#temporals.format(event.date, 'dd.MM.yyyy HH:mm')}">01.01.2026 14:30</td>
+                    <td style="padding:12px;">
+                        <span th:if="${event.type == 'SESSION'}" style="background:#c8e6c9; color:#1b5e20; padding:4px 8px; border-radius:6px; font-size:0.85rem; font-weight:600;">ČTENÍ</span>
+                        <span th:if="${event.type == 'QUIZ'}" style="background:#bbdefb; color:#0d47a1; padding:4px 8px; border-radius:6px; font-size:0.85rem; font-weight:600;">KVÍZ</span>
+                        <span th:if="${event.type == 'PURCHASE'}" style="background:#ffe0b2; color:#e65100; padding:4px 8px; border-radius:6px; font-size:0.85rem; font-weight:600;">NÁKUP</span>
+                        <span th:if="${event.type == 'ADJUSTMENT'}" style="background:#f8bbd0; color:#880e4f; padding:4px 8px; border-radius:6px; font-size:0.85rem; font-weight:600;">ÚPRAVA</span>
+                        <div th:text="${event.description}" style="font-weight:600; margin-top:4px;"></div>
+                    </td>
+                    <td style="padding:12px; text-align:right;">
+                        <span th:if="${event.points > 0}" style="color:#2e7d32; font-weight:600;">+<span th:text="${#numbers.formatDecimal(event.points, 1, 2)}">0.00</span></span>
+                        <span th:if="${event.points < 0}" style="color:#c62828; font-weight:600;"><span th:text="${#numbers.formatDecimal(event.points, 1, 2)}">-0.00</span></span>
+                        <span th:if="${event.points == 0}" style="color:#666;">-</span>
+                    </td>
+                    <td style="padding:12px;" class="muted">
+                        <div th:text="${event.details}">Detaily</div>
+                        <div th:if="${event['note'] != null}" style="color:#1976d2; font-style:italic; margin-top:4px;">📝 <span th:text="${event['note']}">Poznámka</span></div>
+                        <div th:if="${event['answer'] != null}" style="color:#7b1fa2; margin-top:4px;">Odpověď: <span th:text="${event['answer']}">text</span></div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p th:if="${#lists.isEmpty(historyEvents)}" class="muted">Zatím nejsou žádné záznamy v historii.</p>
+    </div>
+</div>
+</body>
+</html>
+

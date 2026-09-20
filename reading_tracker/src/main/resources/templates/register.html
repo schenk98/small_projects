@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Registrace</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .card {
+            width: min(440px, 90vw);
+            background: white;
+            border-radius: 18px;
+            padding: 32px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+        h1 { margin-top: 0; }
+        .error { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; }
+        form { display: flex; flex-direction: column; gap: 14px; }
+        label { font-weight: 600; }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        button {
+            background: #16a34a;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .link { margin-top: 14px; text-align: center; }
+        a { color: #2563eb; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Registrace</h1>
+
+    <div th:if="${registrationError != null}" class="error" th:text="${registrationError}">Uživatel již existuje.</div>
+
+    <form th:action="@{/register}" th:object="${registerForm}" method="post">
+        <div>
+            <label for="email">E-mail</label>
+            <input id="email" th:field="*{email}" type="email" required />
+        </div>
+        <div>
+            <label for="password">Heslo</label>
+            <input id="password" th:field="*{password}" type="password" required />
+        </div>
+        <button type="submit">Vytvořit účet</button>
+    </form>
+
+    <div class="link">
+        <a th:href="@{/login}">Již mám účet</a>
+    </div>
+</div>
+</body>
+</html>
+

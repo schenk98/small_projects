@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="cs" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Chyba aplikace</title>
+    <style>
+        body { margin:0; font-family:Arial,sans-serif; background:#f8fafc; color:#0f172a; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+        .card { max-width:640px; background:white; border-radius:18px; padding:30px 24px; box-shadow:0 16px 40px rgba(15,23,42,0.08); border:1px solid #e2e8f0; }
+        h1 { margin-top:0; color:#7f1d1d; }
+        .muted { color:#475569; }
+        .button-row { margin-top:18px; display:flex; gap:12px; flex-wrap:wrap; }
+        .primary-btn, .secondary-btn { display:inline-block; border-radius:10px; padding:10px 16px; font-weight:700; text-decoration:none; }
+        .primary-btn { background:#0f172a; color:white; }
+        .secondary-btn { background:#e2e8f0; color:#0f172a; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Došlo k chybě</h1>
+    <p class="muted" th:text="${errorMessage}">Něco se nepovedlo.</p>
+    <p class="muted" th:if="${requestUri != null}">Cesta: <span th:text="${requestUri}"></span></p>
+    <div class="button-row">
+        <a class="primary-btn" th:href="@{/dashboard}">Zpět na dashboard</a>
+        <a class="secondary-btn" th:href="@{/new-session}">Přidat záznam</a>
+    </div>
+</div>
+</body>
+</html>
+
